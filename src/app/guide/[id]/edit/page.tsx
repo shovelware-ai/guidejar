@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { ShareDialog } from "@/components/ShareDialog";
 import { StepImage } from "@/components/StepImage";
 import { Thumb } from "@/components/Thumb";
 import { deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
-import type { Guide, Step } from "@/lib/types";
+import type { Guide, PublishInfo, Step } from "@/lib/types";
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,7 @@ export default function EditorPage() {
   const [notFound, setNotFound] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -124,6 +126,15 @@ export default function EditorPage() {
           className="min-w-0 flex-1 rounded-md border border-transparent px-2 py-1 text-sm font-medium hover:border-slate-200 focus:border-indigo-400 focus:outline-none"
           placeholder="Guide title"
         />
+        <button
+          onClick={() => setShareOpen(true)}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium transition hover:bg-slate-50"
+        >
+          {guide.publishedAs ? "Shared" : "Share"}
+          {guide.publishedAs && (
+            <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" />
+          )}
+        </button>
         <Link
           href={`/guide/${guide.id}/view`}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -309,6 +320,19 @@ export default function EditorPage() {
           e.target.value = "";
         }}
       />
+
+      {shareOpen && (
+        <ShareDialog
+          guide={guide}
+          onClose={() => setShareOpen(false)}
+          onUpdated={(info: PublishInfo | undefined) =>
+            update((g) => {
+              if (info) g.publishedAs = info;
+              else delete g.publishedAs;
+            })
+          }
+        />
+      )}
     </div>
   );
 }

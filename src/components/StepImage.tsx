@@ -12,20 +12,25 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  */
 export function StepImage({
   imageId,
+  src,
   hotspot,
   editable = false,
   pulse = false,
   onPlaceHotspot,
   alt = "Step screenshot",
 }: {
-  imageId: string;
+  /** Local image id resolved via IndexedDB.  Ignored when `src` is given. */
+  imageId?: string;
+  /** Direct URL — used by the public viewer to point at the API. */
+  src?: string;
   hotspot?: Hotspot;
   editable?: boolean;
   pulse?: boolean;
   onPlaceHotspot?: (h: Hotspot) => void;
   alt?: string;
 }) {
-  const url = useImageUrl(imageId);
+  const resolved = useImageUrl(src ? undefined : imageId);
+  const url = src ?? resolved;
 
   function handleClick(e: React.MouseEvent<HTMLImageElement>) {
     if (!editable || !onPlaceHotspot) return;

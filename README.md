@@ -42,20 +42,33 @@ npm run build && npm start   # production build
 ```
 src/
   app/
-    page.tsx                  Dashboard — list / create / delete guides
-    guide/[id]/edit/page.tsx  Step editor (add screenshots, hotspots, captions)
-    guide/[id]/view/page.tsx  Interactive viewer / player
+    page.tsx                                Dashboard — list / create / delete guides
+    guide/[id]/edit/page.tsx                Step editor (screenshots, hotspots, captions, Share)
+    guide/[id]/view/page.tsx                Local interactive viewer / player
+    import/page.tsx                         Receives captures from the extension or .json
+    g/[publicId]/page.tsx                   Public viewer for a published guide
+    api/guides/route.ts                     POST: publish / update
+    api/guides/[publicId]/route.ts          GET / DELETE one published guide
+    api/guides/[publicId]/images/[id]/route.ts  Serve a screenshot PNG
   components/
     Logo.tsx
-    StepImage.tsx             Screenshot + positioned hotspot (edit & view modes)
+    StepImage.tsx             Screenshot + positioned hotspot (local + server URLs)
     Thumb.tsx                 Step-list thumbnail
+    PublicViewer.tsx          Player for a published guide (server-hosted images)
+    ShareDialog.tsx           Publish / update / unpublish modal
   lib/
-    types.ts                  Guide / Step / Hotspot models
+    types.ts                  Guide / Step / Hotspot / PublishInfo
     db.ts                     IndexedDB storage + CRUD helpers
-    import.ts                 Turn a captured session into a stored guide
     useImageUrl.ts            Hook: stored Blob -> object URL
+    import.ts                 Turn a captured session into a stored guide
+    publish.ts                Publish a local guide to the server, unpublish, share URL
+    server/
+      db.ts                   SQLite + schema + CRUD for published guides
+      storage.ts              Read/write screenshot PNGs under data/images/
+      ids.ts                  Short URL ids + per-guide edit keys
 
 extension/                    Chrome (MV3) capture extension — see below
+data/                         (gitignored) SQLite db + screenshot files
 ```
 
 Screenshot bytes live in a separate `images` object store keyed by id; guide
@@ -97,12 +110,49 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
 
+## Sharing & embedding
+
+Drafts stay local-first in IndexedDB. To make a guide shareable, hit **Share**
+in the editor and **Publish**: the app uploads the steps + screenshots to the
+server and gives you a public URL like `/g/<publicId>` plus an `<iframe>`
+embed snippet (`?embed=1` strips chrome). **Update** re-uploads; **Unpublish**
+removes the server copy. Drafts you never publish never leave the browser.
+
+**Ownership model.** There are no accounts in this MVP. Publishing returns
+both a public `publicId` and a secret `editKey`; the client stores the editKey
+on the local guide and uses it to update/unpublish. Anyone with the share link
+can view; only someone with the editKey can change or delete it.
+
+**Where things live on the server.**
+
+- `data/guidejar.db` — SQLite (single file, WAL mode); one row per published guide
+  with title, description, step list (as JSON of `{imageId, title, description, hotspot}`),
+  and the editKey.
+- `data/images/<publicId>/<imageId>.png` — screenshot files, one directory per guide.
+
+Re-publishing wipes the guide's image directory and writes fresh files, so the
+server never accumulates orphans.
+
+**API.**
+
+```
+POST   /api/guides                           Publish (or update with publicId+editKey)
+GET    /api/guides/<publicId>                Fetch JSON metadata + step list
+DELETE /api/guides/<publicId>?key=<editKey>  Unpublish
+GET    /api/guides/<publicId>/images/<id>    Serve a screenshot (long cache)
+```
+
+**Limits & caveats.** 200 steps and 8 MB per screenshot, enforced server-side.
+No rate limiting, no auth, no signed URLs — fine for a local/self-hosted MVP,
+not appropriate as-is for a multi-tenant public deployment. Path traversal is
+defended at the storage layer (every id must match `[A-Za-z0-9_-]{1,128}`).
+
 ## Roadmap
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **Sharing & embedding** — a real backend so guides have shareable URLs and can
-  be embedded in other sites. Requires moving storage off the browser.
+- **Accounts & ownership** — replace the per-guide editKey with real user
+  accounts, so a person can see/manage all the guides they've published.
 - Image annotations: blur regions, arrows, text callouts.
 - Branching paths and chapters.
 - AI voiceover and translation.

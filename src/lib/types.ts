@@ -15,6 +15,15 @@ export type Step = {
   hotspot?: Hotspot;
 };
 
+/** Set on a guide once it has been published to the server. The editKey is a
+ *  per-guide capability secret that lets this client update/unpublish later;
+ *  it stays local. */
+export type PublishInfo = {
+  publicId: string;
+  editKey: string;
+  publishedAt: number;
+};
+
 export type Guide = {
   id: string;
   title: string;
@@ -22,4 +31,5 @@ export type Guide = {
   steps: Step[];
   createdAt: number;
   updatedAt: number;
+  publishedAs?: PublishInfo;
 };
