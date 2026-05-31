@@ -47,28 +47,38 @@ src/
     guide/[id]/view/page.tsx                Local interactive viewer / player
     import/page.tsx                         Receives captures from the extension or .json
     g/[publicId]/page.tsx                   Public viewer for a published guide
+    login/page.tsx                          Sign-in form
+    signup/page.tsx                         Account creation form
+    me/page.tsx                             Signed-in user's published guides
     api/guides/route.ts                     POST: publish / update
     api/guides/[publicId]/route.ts          GET / DELETE one published guide
     api/guides/[publicId]/images/[id]/route.ts  Serve a screenshot PNG
+    api/auth/{signup,login,logout,me}/route.ts  Auth endpoints
+    api/me/guides/route.ts                  List the signed-in user's guides
   components/
     Logo.tsx
-    StepImage.tsx             Screenshot + positioned hotspot (local + server URLs)
-    Thumb.tsx                 Step-list thumbnail
-    PublicViewer.tsx          Player for a published guide (server-hosted images)
-    ShareDialog.tsx           Publish / update / unpublish modal
+    AuthNav.tsx               Header widget: sign in / sign up / account menu
+    AuthForm.tsx               Card shell + Field used by /login and /signup
+    StepImage.tsx              Screenshot + positioned hotspot (local + server URLs)
+    Thumb.tsx                  Step-list thumbnail
+    PublicViewer.tsx           Player for a published guide (server-hosted images)
+    ShareDialog.tsx            Publish / update / unpublish modal
   lib/
     types.ts                  Guide / Step / Hotspot / PublishInfo
     db.ts                     IndexedDB storage + CRUD helpers
     useImageUrl.ts            Hook: stored Blob -> object URL
+    useCurrentUser.ts         Hook: current signed-in user (fetches /api/auth/me)
     import.ts                 Turn a captured session into a stored guide
     publish.ts                Publish a local guide to the server, unpublish, share URL
     server/
-      db.ts                   SQLite + schema + CRUD for published guides
+      db.ts                   SQLite + versioned migrations + CRUD
       storage.ts              Read/write screenshot PNGs under data/images/
       ids.ts                  Short URL ids + per-guide edit keys
+      auth.ts                 HMAC-signed session cookies; getCurrentUser
+      users.ts                User CRUD + bcrypt password verify
 
 extension/                    Chrome (MV3) capture extension — see below
-data/                         (gitignored) SQLite db + screenshot files
+data/                         (gitignored) SQLite db + screenshot files + session secret
 ```
 
 Screenshot bytes live in a separate `images` object store keyed by id; guide
@@ -118,10 +128,18 @@ server and gives you a public URL like `/g/<publicId>` plus an `<iframe>`
 embed snippet (`?embed=1` strips chrome). **Update** re-uploads; **Unpublish**
 removes the server copy. Drafts you never publish never leave the browser.
 
-**Ownership model.** There are no accounts in this MVP. Publishing returns
-both a public `publicId` and a secret `editKey`; the client stores the editKey
-on the local guide and uses it to update/unpublish. Anyone with the share link
-can view; only someone with the editKey can change or delete it.
+**Ownership model.** Two layers, designed to coexist:
+
+1. **Capability key.** Every publish — anonymous or not — returns a secret
+   `editKey` alongside the `publicId`. The client stores it on the local guide
+   as `guide.publishedAs.editKey` and uses it to update/unpublish.
+2. **Accounts.** If you're signed in when you publish, the guide is also tied
+   to your account; from then on you can update/unpublish it from any browser
+   without needing the editKey.
+
+A request is authorised to mutate a guide if **either** the editKey matches
+**or** the session owns it. Anyone with the share link can view; only those
+two parties can change or delete.
 
 **Where things live on the server.**
 
@@ -136,24 +154,35 @@ server never accumulates orphans.
 **API.**
 
 ```
-POST   /api/guides                           Publish (or update with publicId+editKey)
+POST   /api/auth/signup                      Create account + start session
+POST   /api/auth/login                       Verify password + start session
+POST   /api/auth/logout                      Clear session
+GET    /api/auth/me                          Current user (or null)
+GET    /api/me/guides                        List the signed-in user's guides
+
+POST   /api/guides                           Publish (or update; auth by editKey or session)
 GET    /api/guides/<publicId>                Fetch JSON metadata + step list
-DELETE /api/guides/<publicId>?key=<editKey>  Unpublish
+DELETE /api/guides/<publicId>[?key=<key>]    Unpublish (auth by editKey or session)
 GET    /api/guides/<publicId>/images/<id>    Serve a screenshot (long cache)
 ```
 
+**Sessions.** HMAC-signed cookie (`gj_session`) over `<userId>.<expiresMs>.<sig>`,
+HTTP-only, lax SameSite, secure in production, 30-day TTL. The HMAC secret is
+generated to `data/secret` (gitignored, mode 0600) on first run so sessions
+survive restarts. Passwords are bcrypt-hashed (cost 10). Schema is versioned
+via SQLite's `user_version` pragma, so future migrations apply once and stay
+backwards-compatible.
+
 **Limits & caveats.** 200 steps and 8 MB per screenshot, enforced server-side.
-No rate limiting, no auth, no signed URLs — fine for a local/self-hosted MVP,
-not appropriate as-is for a multi-tenant public deployment. Path traversal is
-defended at the storage layer (every id must match `[A-Za-z0-9_-]{1,128}`).
+No rate limiting, no email verification, no password reset — fine for a
+local/self-hosted MVP. Path traversal is defended at the storage layer (every
+id must match `[A-Za-z0-9_-]{1,128}`).
 
 ## Roadmap
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **Accounts & ownership** — replace the per-guide editKey with real user
-  accounts, so a person can see/manage all the guides they've published.
-- Image annotations: blur regions, arrows, text callouts.
+- **Image annotations**: blur regions (hide sensitive data), arrows, text callouts.
 - Branching paths and chapters.
 - AI voiceover and translation.
 - Analytics on guide engagement.

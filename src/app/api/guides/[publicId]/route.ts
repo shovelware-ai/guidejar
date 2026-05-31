@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { deleteGuideRow, getEditKey, getGuide } from "@/lib/server/db";
+import { getCurrentUser } from "@/lib/server/auth";
+import { deleteGuideRow, getGuide, getGuideOwnership } from "@/lib/server/db";
 import { clearImages } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
@@ -21,11 +22,14 @@ export async function DELETE(
   { params }: { params: Promise<{ publicId: string }> },
 ) {
   const { publicId } = await params;
+  const owner = getGuideOwnership(publicId);
+  if (!owner) return NextResponse.json({ ok: true }); // already gone
   const key = new URL(req.url).searchParams.get("key");
-  const existing = getEditKey(publicId);
-  if (!existing) return NextResponse.json({ ok: true }); // already gone
-  if (existing !== key) {
-    return NextResponse.json({ error: "Bad edit key" }, { status: 403 });
+  const me = await getCurrentUser();
+  const byKey = !!key && key === owner.editKey;
+  const byUser = !!me && owner.userId === me.id;
+  if (!byKey && !byUser) {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
   deleteGuideRow(publicId);
   await clearImages(publicId);

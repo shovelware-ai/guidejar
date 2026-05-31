@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { AuthNav } from "@/components/AuthNav";
 import { Logo } from "@/components/Logo";
 import { ShareDialog } from "@/components/ShareDialog";
 import { StepImage } from "@/components/StepImage";
@@ -141,6 +142,9 @@ export default function EditorPage() {
         >
           Preview ▸
         </Link>
+        <span className="ml-1 border-l border-slate-200 pl-3">
+          <AuthNav />
+        </span>
       </header>
 
       <div className="flex min-h-0 flex-1">

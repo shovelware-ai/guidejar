@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AuthNav } from "@/components/AuthNav";
 import { Logo } from "@/components/Logo";
 import { createGuide, deleteGuide, listGuides } from "@/lib/db";
 import type { Guide } from "@/lib/types";
@@ -48,6 +49,9 @@ export default function Dashboard() {
             >
               + New guide
             </button>
+            <span className="ml-2 border-l border-slate-200 pl-3">
+              <AuthNav />
+            </span>
           </div>
         </div>
       </header>

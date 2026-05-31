@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/server/auth";
 import {
-  getEditKey,
+  getGuideOwnership,
   insertGuide,
   type PublishedStep,
   updateGuide,
@@ -65,15 +66,20 @@ export async function POST(req: Request) {
     decoded.push({ id: shortId(12), bytes, step });
   }
 
-  // Decide between insert and update.
+  const me = await getCurrentUser();
+
+  // Decide between insert and update. Update is authorised by either the
+  // editKey (works for anonymous publishers) or by being the owning user.
   let publicId = body.publicId;
   let editKey: string;
   let isUpdate = false;
   if (publicId) {
-    const existing = getEditKey(publicId);
-    if (!existing) return bad("Guide not found", 404);
-    if (existing !== body.editKey) return bad("Bad edit key", 403);
-    editKey = existing;
+    const owner = getGuideOwnership(publicId);
+    if (!owner) return bad("Guide not found", 404);
+    const byKey = !!body.editKey && body.editKey === owner.editKey;
+    const byUser = !!me && owner.userId === me.id;
+    if (!byKey && !byUser) return bad("Not allowed", 403);
+    editKey = owner.editKey;
     isUpdate = true;
   } else {
     publicId = shortId();
@@ -102,7 +108,7 @@ export async function POST(req: Request) {
     steps,
   };
   if (isUpdate) updateGuide(publicId, guide);
-  else insertGuide(publicId, editKey, guide);
+  else insertGuide(publicId, editKey, guide, me?.id ?? null);
 
-  return NextResponse.json({ publicId, editKey });
+  return NextResponse.json({ publicId, editKey, owned: !!me });
 }

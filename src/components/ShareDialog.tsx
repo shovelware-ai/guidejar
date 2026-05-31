@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   embedSnippet,
   publishGuide,
   shareUrl,
   unpublishGuide,
 } from "@/lib/publish";
+import { useCurrentUser } from "@/lib/useCurrentUser";
 import type { Guide, PublishInfo } from "@/lib/types";
 
 type Status =
@@ -24,6 +26,7 @@ export function ShareDialog({
   onUpdated: (info: PublishInfo | undefined) => void;
 }) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const { user } = useCurrentUser();
   const info = guide.publishedAs;
 
   // Close on Escape.
@@ -99,6 +102,25 @@ export function ShareDialog({
         )}
 
         {info ? <PublishedPanel info={info} /> : <UnpublishedNote />}
+
+        <p className="mt-4 text-xs text-slate-500">
+          {user ? (
+            <>Publishing as <b>{user.email}</b> — this guide will show up in your{" "}
+              <Link href="/me" className="text-indigo-600 hover:underline">
+                published guides
+              </Link>.
+            </>
+          ) : (
+            <>
+              Publishing anonymously. The only way to manage this guide will be
+              the editKey saved in this browser.{" "}
+              <Link href="/login" className="text-indigo-600 hover:underline">
+                Sign in
+              </Link>{" "}
+              first to claim it on your account.
+            </>
+          )}
+        </p>
 
         <div className="mt-5 flex items-center justify-end gap-2">
           {info && (
