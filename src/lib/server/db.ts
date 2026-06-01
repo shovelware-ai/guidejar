@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import type { Annotation, Branch } from "@/lib/types";
+import type { Annotation, Branch, Chapter } from "@/lib/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -39,6 +39,13 @@ const MIGRATIONS: ((db: Database.Database) => void)[] = [
       CREATE INDEX idx_guides_user ON guides(user_id);
     `);
   },
+  // v3 — chapters. Stored as JSON column; existing rows get '[]'.
+  (db) => {
+    db.exec(`
+      ALTER TABLE guides
+        ADD COLUMN chapters_json TEXT NOT NULL DEFAULT '[]';
+    `);
+  },
 ];
 
 function migrate(db: Database.Database) {
@@ -74,6 +81,7 @@ export type PublishedStep = {
   hotspot?: { x: number; y: number };
   annotations?: Annotation[];
   branches?: Branch[];
+  chapterId?: string;
 };
 
 export type PublishedGuide = {
@@ -81,6 +89,7 @@ export type PublishedGuide = {
   title: string;
   description: string;
   steps: PublishedStep[];
+  chapters?: Chapter[];
   createdAt: number;
   updatedAt: number;
   userId?: string;
@@ -92,17 +101,20 @@ type GuideRow = {
   title: string;
   description: string;
   steps_json: string;
+  chapters_json: string;
   created_at: number;
   updated_at: number;
   user_id: string | null;
 };
 
 function rowToGuide(row: GuideRow): PublishedGuide {
+  const chapters = (JSON.parse(row.chapters_json) as Chapter[]) ?? [];
   return {
     publicId: row.public_id,
     title: row.title,
     description: row.description,
     steps: JSON.parse(row.steps_json) as PublishedStep[],
+    chapters: chapters.length > 0 ? chapters : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     userId: row.user_id ?? undefined,
@@ -139,8 +151,8 @@ export function insertGuide(
   const now = Date.now();
   db()
     .prepare(
-      `INSERT INTO guides (public_id, edit_key, title, description, steps_json, created_at, updated_at, user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guides (public_id, edit_key, title, description, steps_json, chapters_json, created_at, updated_at, user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       publicId,
@@ -148,6 +160,7 @@ export function insertGuide(
       guide.title,
       guide.description,
       JSON.stringify(guide.steps),
+      JSON.stringify(guide.chapters ?? []),
       now,
       now,
       userId,
@@ -167,13 +180,14 @@ export function updateGuide(
 ): void {
   db()
     .prepare(
-      `UPDATE guides SET title = ?, description = ?, steps_json = ?, updated_at = ?
+      `UPDATE guides SET title = ?, description = ?, steps_json = ?, chapters_json = ?, updated_at = ?
        WHERE public_id = ?`,
     )
     .run(
       guide.title,
       guide.description,
       JSON.stringify(guide.steps),
+      JSON.stringify(guide.chapters ?? []),
       Date.now(),
       publicId,
     );

@@ -43,12 +43,14 @@ export default function ViewerPage() {
     hotspot: s.hotspot,
     annotations: s.annotations,
     branches: s.branches,
+    chapterId: s.chapterId,
     imageId: s.imageId,
   }));
 
   return (
     <GuidePlayer
       steps={steps}
+      chapters={guide.chapters}
       title={guide.title}
       headerExtras={
         <Link

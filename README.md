@@ -123,6 +123,28 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
 
+## Chapters
+
+A guide can have a list of chapters (`{ id, title }[]`); each step optionally
+references one via `chapterId`. Chapters group **consecutive** steps with the
+same chapterId into a named section — they don't reorder steps. Guides
+without chapters are unchanged.
+
+**Editor.** The step details panel has a Chapter dropdown (existing chapters,
+"+ New chapter…" to create one, or "— None —"). The sidebar step list shows a
+chapter header above the first step of each section. Deleting a step prunes
+any chapter that no longer has any steps in it.
+
+**Player.** The header gains a **Chapters ▾** menu when the guide has any
+chapters; clicking a chapter jumps to its first step (and adds a history
+entry so Back returns to where you were). The current step's chapter title is
+also rendered above the step caption.
+
+**Server.** A real `user_version`-tracked schema migration (v3) added a
+`chapters_json` column on the `guides` table; existing rows get `'[]'` and
+keep working. The publish API drops any orphan chapters that no step
+references — the model never carries dangling sections.
+
 ## Branching paths
 
 Any step can carry a list of **branches** — `{ id, label, targetStepId }`.
@@ -233,6 +255,5 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **Chapters** — group steps into named sections with a table of contents in the viewer.
-- AI voiceover and translation.
+- **AI voiceover and translation** — needs a chosen API provider and key.
 - Analytics on guide engagement.

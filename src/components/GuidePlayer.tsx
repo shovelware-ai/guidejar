@@ -7,6 +7,7 @@ import {
   END_OF_GUIDE,
   type Annotation,
   type Branch,
+  type Chapter,
   type Hotspot,
 } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export type PlayerStep = {
   hotspot?: Hotspot;
   annotations?: Annotation[];
   branches?: Branch[];
+  chapterId?: string;
   imageId?: string;
   src?: string;
 };
@@ -32,12 +34,14 @@ export type PlayerStep = {
  */
 export function GuidePlayer({
   steps,
+  chapters,
   title,
   embed = false,
   headerExtras,
   footer,
 }: {
   steps: PlayerStep[];
+  chapters?: Chapter[];
   title?: string;
   embed?: boolean;
   /** Slot rendered at the right of the header (e.g. Edit link). */
@@ -117,6 +121,26 @@ export function GuidePlayer({
   const canBack = history.length > 0;
   const branches = step?.branches ?? [];
   const isDecision = branches.length > 0;
+  const chapter = chapters?.find((c) => c.id === step?.chapterId);
+
+  // Step ranges per chapter, for the ToC sidebar.
+  const chapterRanges = useMemo(() => {
+    if (!chapters?.length) return [];
+    return chapters
+      .map((c) => {
+        const indices = steps
+          .map((s, i) => (s.chapterId === c.id ? i : -1))
+          .filter((i) => i >= 0);
+        if (indices.length === 0) return null;
+        return {
+          chapter: c,
+          firstStepId: steps[indices[0]].id,
+          firstIndex: indices[0],
+          lastIndex: indices[indices.length - 1],
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+  }, [chapters, steps]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -126,6 +150,13 @@ export function GuidePlayer({
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {title}
           </span>
+          {chapterRanges.length > 0 && (
+            <TocMenu
+              ranges={chapterRanges}
+              activeChapterId={step?.chapterId}
+              onPick={(firstStepId) => goto(firstStepId)}
+            />
+          )}
           {headerExtras}
         </header>
       )}
@@ -183,6 +214,11 @@ export function GuidePlayer({
               </button>
 
               <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                {chapter && (
+                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    {chapter.title}
+                  </div>
+                )}
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-600">
                   {hasBranches
                     ? isDecision
@@ -247,6 +283,61 @@ export function GuidePlayer({
         <footer className="border-t border-slate-200 bg-white px-6 py-2 text-center text-xs text-slate-400">
           {footer}
         </footer>
+      )}
+    </div>
+  );
+}
+
+function TocMenu({
+  ranges,
+  activeChapterId,
+  onPick,
+}: {
+  ranges: {
+    chapter: Chapter;
+    firstStepId: string;
+    firstIndex: number;
+    lastIndex: number;
+  }[];
+  activeChapterId?: string;
+  onPick: (firstStepId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-50"
+      >
+        Chapters ▾
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-20 mt-1 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+            {ranges.map(({ chapter, firstStepId, firstIndex, lastIndex }) => {
+              const active = chapter.id === activeChapterId;
+              return (
+                <button
+                  key={chapter.id}
+                  onClick={() => {
+                    onPick(firstStepId);
+                    setOpen(false);
+                  }}
+                  className={`block w-full px-3 py-2 text-left text-sm transition hover:bg-slate-50 ${
+                    active ? "bg-indigo-50 font-medium" : ""
+                  }`}
+                >
+                  <span className="block truncate">{chapter.title}</span>
+                  <span className="block text-xs text-slate-400">
+                    Steps {firstIndex + 1}
+                    {lastIndex !== firstIndex && `–${lastIndex + 1}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

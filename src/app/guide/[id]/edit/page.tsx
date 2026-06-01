@@ -12,6 +12,7 @@ import { deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
 import {
   END_OF_GUIDE,
   type Branch,
+  type Chapter,
   type Guide,
   type PublishInfo,
   type Step,
@@ -105,6 +106,12 @@ export default function EditorPage() {
           if (s.branches.length === 0) delete s.branches;
         }
       }
+      // Prune chapters that nothing references any more.
+      if (g.chapters?.length) {
+        const used = new Set(g.steps.map((s) => s.chapterId).filter(Boolean));
+        g.chapters = g.chapters.filter((c) => used.has(c.id));
+        if (g.chapters.length === 0) delete g.chapters;
+      }
     });
     await deleteImage(step.imageId);
     setSelectedId((cur) =>
@@ -175,24 +182,36 @@ export default function EditorPage() {
             </button>
           </div>
           <ol className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
-            {guide.steps.map((step, i) => (
-              <li key={step.id}>
-                <button
-                  onClick={() => setSelectedId(step.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg p-2 text-left transition ${
-                    step.id === selectedId
-                      ? "bg-indigo-50 ring-1 ring-indigo-200"
-                      : "hover:bg-slate-50"
-                  }`}
-                >
-                  <span className="w-4 text-xs text-slate-400">{i + 1}</span>
-                  <Thumb imageId={step.imageId} />
-                  <span className="line-clamp-2 min-w-0 flex-1 text-sm">
-                    {step.title || "Untitled step"}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {guide.steps.map((step, i) => {
+              const prev = i > 0 ? guide.steps[i - 1] : null;
+              const showHeader = step.chapterId && step.chapterId !== prev?.chapterId;
+              const chapter = guide.chapters?.find((c) => c.id === step.chapterId);
+              return (
+                <div key={step.id}>
+                  {showHeader && chapter && (
+                    <div className="mt-3 mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      {chapter.title}
+                    </div>
+                  )}
+                  <li>
+                    <button
+                      onClick={() => setSelectedId(step.id)}
+                      className={`flex w-full items-center gap-3 rounded-lg p-2 text-left transition ${
+                        step.id === selectedId
+                          ? "bg-indigo-50 ring-1 ring-indigo-200"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="w-4 text-xs text-slate-400">{i + 1}</span>
+                      <Thumb imageId={step.imageId} />
+                      <span className="line-clamp-2 min-w-0 flex-1 text-sm">
+                        {step.title || "Untitled step"}
+                      </span>
+                    </button>
+                  </li>
+                </div>
+              );
+            })}
           </ol>
         </aside>
 
@@ -250,6 +269,26 @@ export default function EditorPage() {
                     </button>
                   )}
                 </div>
+                <ChapterPicker
+                  step={selected}
+                  chapters={guide.chapters ?? []}
+                  onAssign={(chapterId) =>
+                    update((g) => {
+                      const s = g.steps.find((x) => x.id === selected.id);
+                      if (!s) return;
+                      if (chapterId) s.chapterId = chapterId;
+                      else delete s.chapterId;
+                    })
+                  }
+                  onCreate={(title) => {
+                    const id = uid();
+                    update((g) => {
+                      g.chapters = [...(g.chapters ?? []), { id, title }];
+                      const s = g.steps.find((x) => x.id === selected.id);
+                      if (s) s.chapterId = id;
+                    });
+                  }}
+                />
                 <input
                   value={selected.title}
                   onChange={(e) =>
@@ -372,6 +411,48 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col items-center gap-2 text-sm text-slate-500">
         {children}
       </div>
+    </div>
+  );
+}
+
+function ChapterPicker({
+  step,
+  chapters,
+  onAssign,
+  onCreate,
+}: {
+  step: Step;
+  chapters: Chapter[];
+  onAssign: (chapterId: string | null) => void;
+  onCreate: (title: string) => void;
+}) {
+  const NEW = "__new__";
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Chapter
+      </span>
+      <select
+        value={step.chapterId ?? ""}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === NEW) {
+            const title = prompt("New chapter name");
+            if (title?.trim()) onCreate(title.trim());
+          } else {
+            onAssign(v || null);
+          }
+        }}
+        className="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+      >
+        <option value="">— None —</option>
+        {chapters.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.title}
+          </option>
+        ))}
+        <option value={NEW}>+ New chapter…</option>
+      </select>
     </div>
   );
 }

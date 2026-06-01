@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/db";
 import { clearImages, writeImage } from "@/lib/server/storage";
 import { editKey as newEditKey, shortId } from "@/lib/server/ids";
-import type { Annotation, Branch } from "@/lib/types";
+import type { Annotation, Branch, Chapter } from "@/lib/types";
 
 export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
 
@@ -25,6 +25,7 @@ type PublishStepInput = {
   hotspot?: { x: number; y: number };
   annotations?: Annotation[];
   branches?: Branch[];
+  chapterId?: string;
   image: { base64: string; mime?: string };
 };
 
@@ -32,6 +33,7 @@ type PublishBody = {
   title?: string;
   description?: string;
   steps: PublishStepInput[];
+  chapters?: Chapter[];
   // For updates: include the publicId + editKey returned at first publish.
   publicId?: string;
   editKey?: string;
@@ -109,12 +111,20 @@ export async function POST(req: Request) {
     hotspot: step.hotspot,
     annotations: step.annotations,
     branches: step.branches,
+    chapterId: step.chapterId,
   }));
+
+  // Drop chapters that aren't referenced by any step — keeps the model tidy.
+  const usedChapterIds = new Set(
+    steps.map((s) => s.chapterId).filter((c): c is string => !!c),
+  );
+  const chapters = (body.chapters ?? []).filter((c) => usedChapterIds.has(c.id));
 
   const guide = {
     title: (body.title ?? "").trim() || "Untitled guide",
     description: body.description ?? "",
     steps,
+    chapters: chapters.length > 0 ? chapters : undefined,
   };
   if (isUpdate) updateGuide(publicId, guide);
   else insertGuide(publicId, editKey, guide, me?.id ?? null);

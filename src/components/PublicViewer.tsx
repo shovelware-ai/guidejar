@@ -23,12 +23,14 @@ export function PublicViewer({
     hotspot: s.hotspot,
     annotations: s.annotations,
     branches: s.branches,
+    chapterId: s.chapterId,
     src: `/api/guides/${guide.publicId}/images/${s.imageId}`,
   }));
 
   return (
     <GuidePlayer
       steps={steps}
+      chapters={guide.chapters}
       title={guide.title}
       embed={embed}
       footer={

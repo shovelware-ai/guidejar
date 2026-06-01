@@ -37,6 +37,7 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
         hotspot: s.hotspot,
         annotations: s.annotations,
         branches: s.branches,
+        chapterId: s.chapterId,
         image: { base64: await blobToBase64(blob), mime: blob.type || "image/png" },
       };
     }),
@@ -50,6 +51,7 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
       description: guide.description,
       publicId: guide.publishedAs?.publicId,
       editKey: guide.publishedAs?.editKey,
+      chapters: guide.chapters,
       steps,
     }),
   });

@@ -45,6 +45,13 @@ export type Branch = {
   targetStepId: string; // step id or END_OF_GUIDE
 };
 
+/** Chapters group **consecutive** steps with the same chapterId into a named
+ *  section. They don't reorder steps — the steps array is still the truth. */
+export type Chapter = {
+  id: string;
+  title: string;
+};
+
 /** A single step in a guide. The screenshot itself lives in the `images`
  *  object store keyed by `imageId`; the step only references it. */
 export type Step = {
@@ -56,6 +63,8 @@ export type Step = {
   annotations?: Annotation[];
   /** When non-empty, the viewer shows choice buttons instead of Next. */
   branches?: Branch[];
+  /** References a `Chapter.id` on the parent guide. */
+  chapterId?: string;
 };
 
 /** Set on a guide once it has been published to the server. The editKey is a
@@ -72,6 +81,7 @@ export type Guide = {
   title: string;
   description: string;
   steps: Step[];
+  chapters?: Chapter[];
   createdAt: number;
   updatedAt: number;
   publishedAs?: PublishInfo;
