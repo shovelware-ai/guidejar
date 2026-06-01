@@ -1,7 +1,8 @@
 "use client";
 
 import { useImageUrl } from "@/lib/useImageUrl";
-import type { Hotspot } from "@/lib/types";
+import type { Annotation, Hotspot } from "@/lib/types";
+import { AnnotationLayer } from "./AnnotationLayer";
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
@@ -14,6 +15,7 @@ export function StepImage({
   imageId,
   src,
   hotspot,
+  annotations,
   editable = false,
   pulse = false,
   onPlaceHotspot,
@@ -24,6 +26,7 @@ export function StepImage({
   /** Direct URL — used by the public viewer to point at the API. */
   src?: string;
   hotspot?: Hotspot;
+  annotations?: Annotation[];
   editable?: boolean;
   pulse?: boolean;
   onPlaceHotspot?: (h: Hotspot) => void;
@@ -59,6 +62,10 @@ export function StepImage({
         <div className="grid h-64 w-96 max-w-full place-items-center rounded-lg border border-slate-200 bg-slate-100 text-sm text-slate-400">
           Loading image…
         </div>
+      )}
+
+      {url && annotations && annotations.length > 0 && (
+        <AnnotationLayer annotations={annotations} />
       )}
 
       {hotspot && url && (

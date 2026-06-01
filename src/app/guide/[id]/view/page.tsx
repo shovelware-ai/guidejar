@@ -126,6 +126,7 @@ export default function ViewerPage() {
                 <StepImage
                   imageId={step.imageId}
                   hotspot={step.hotspot}
+                  annotations={step.annotations}
                   pulse
                 />
               </button>

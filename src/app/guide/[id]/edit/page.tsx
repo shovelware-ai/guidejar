@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AuthNav } from "@/components/AuthNav";
 import { Logo } from "@/components/Logo";
 import { ShareDialog } from "@/components/ShareDialog";
-import { StepImage } from "@/components/StepImage";
+import { StepCanvas } from "@/components/StepCanvas";
 import { Thumb } from "@/components/Thumb";
 import { deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
 import type { Guide, PublishInfo, Step } from "@/lib/types";
@@ -201,23 +201,22 @@ export default function EditorPage() {
         >
           {selected ? (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6">
-              <p className="text-center text-xs text-slate-500">
-                Click anywhere on the screenshot to mark where the user should
-                click.
-              </p>
-              <div className="flex justify-center">
-                <StepImage
-                  imageId={selected.imageId}
-                  hotspot={selected.hotspot}
-                  editable
-                  onPlaceHotspot={(h) =>
-                    update((g) => {
-                      const s = g.steps.find((x) => x.id === selected.id);
-                      if (s) s.hotspot = h;
-                    })
-                  }
-                />
-              </div>
+              <StepCanvas
+                imageId={selected.imageId}
+                hotspot={selected.hotspot}
+                annotations={selected.annotations ?? []}
+                onUpdate={(patch) =>
+                  update((g) => {
+                    const s = g.steps.find((x) => x.id === selected.id);
+                    if (!s) return;
+                    if ("hotspot" in patch) {
+                      if (patch.hotspot) s.hotspot = patch.hotspot;
+                      else delete s.hotspot;
+                    }
+                    if (patch.annotations) s.annotations = patch.annotations;
+                  })
+                }
+              />
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center justify-between">

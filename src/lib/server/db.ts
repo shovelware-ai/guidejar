@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import type { Annotation } from "@/lib/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -69,6 +70,7 @@ export type PublishedStep = {
   title: string;
   description: string;
   hotspot?: { x: number; y: number };
+  annotations?: Annotation[];
 };
 
 export type PublishedGuide = {

@@ -59,7 +59,9 @@ src/
     Logo.tsx
     AuthNav.tsx               Header widget: sign in / sign up / account menu
     AuthForm.tsx               Card shell + Field used by /login and /signup
-    StepImage.tsx              Screenshot + positioned hotspot (local + server URLs)
+    StepImage.tsx              Screenshot + hotspot + annotations (local + server URLs)
+    StepCanvas.tsx             Editor canvas: toolbar + drag-to-draw annotations
+    AnnotationLayer.tsx        Pure render of blur/arrow/text overlays
     Thumb.tsx                  Step-list thumbnail
     PublicViewer.tsx           Player for a published guide (server-hosted images)
     ShareDialog.tsx            Publish / update / unpublish modal
@@ -119,6 +121,29 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > Capturing on `pointerdown` means the screenshot shows the page *before* the
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
+
+## Annotations
+
+Each step's screenshot supports three kinds of overlay on top of the hotspot:
+
+- **Blur** — a rectangle that hides sensitive content via `backdrop-filter: blur`.
+- **Arrow** — a coloured arrow from one point to another (SVG with marker).
+- **Text** — a small amber callout card with arbitrary text.
+
+Like hotspots, every coordinate is stored as a relative `0..1` so the overlay
+stays correctly positioned at any rendered image size. The render layer uses
+SVG percentage lengths so arrows don't distort or scale strokes incorrectly,
+and CSS percentages for blur/text — no `ResizeObserver` needed.
+
+**Editor.** The step canvas has a tool palette (Select / Hotspot / Blur /
+Arrow / Text, with `V H B A T` shortcuts). Drag to draw blur or arrow,
+click for hotspot or text. In Select mode, click an annotation to select
+it, drag to move, `Backspace` to delete, double-clicking text re-enters
+editing.
+
+**Persistence.** Annotations are stored on each `Step` as
+`annotations?: Annotation[]`. The wire/DB format is identical
+(`steps_json` is JSON), so no schema migration was needed to add them.
 
 ## Sharing & embedding
 
@@ -182,7 +207,6 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **Image annotations**: blur regions (hide sensitive data), arrows, text callouts.
-- Branching paths and chapters.
+- **Branching paths and chapters** — multiple pathways through a guide; group steps.
 - AI voiceover and translation.
 - Analytics on guide engagement.

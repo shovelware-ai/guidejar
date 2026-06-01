@@ -34,6 +34,7 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
         title: s.title,
         description: s.description,
         hotspot: s.hotspot,
+        annotations: s.annotations,
         image: { base64: await blobToBase64(blob), mime: blob.type || "image/png" },
       };
     }),

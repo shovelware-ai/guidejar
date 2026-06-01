@@ -94,6 +94,7 @@ export function PublicViewer({
                 <StepImage
                   src={`/api/guides/${guide.publicId}/images/${step.imageId}`}
                   hotspot={step.hotspot}
+                  annotations={step.annotations}
                   pulse
                 />
               </button>

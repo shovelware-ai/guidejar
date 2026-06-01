@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/db";
 import { clearImages, writeImage } from "@/lib/server/storage";
 import { editKey as newEditKey, shortId } from "@/lib/server/ids";
+import type { Annotation } from "@/lib/types";
 
 export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
 
@@ -19,6 +20,7 @@ type PublishStepInput = {
   title?: string;
   description?: string;
   hotspot?: { x: number; y: number };
+  annotations?: Annotation[];
   image: { base64: string; mime?: string };
 };
 
@@ -100,6 +102,7 @@ export async function POST(req: Request) {
     title: step.title?.trim() || `Step ${i + 1}`,
     description: step.description ?? "",
     hotspot: step.hotspot,
+    annotations: step.annotations,
   }));
 
   const guide = {
