@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { StepImage } from "@/components/StepImage";
+import { useAudioUrl } from "@/lib/useAudioUrl";
 import {
   END_OF_GUIDE,
   type Annotation,
@@ -24,6 +25,11 @@ export type PlayerStep = {
   chapterId?: string;
   imageId?: string;
   src?: string;
+  /** Local audio Blob id (resolved via IndexedDB).  Ignored when `audioSrc`
+   *  is given. */
+  audioId?: string;
+  /** Direct URL — used by the public viewer to point at the server. */
+  audioSrc?: string;
 };
 
 /**
@@ -123,6 +129,27 @@ export function GuidePlayer({
   const isDecision = branches.length > 0;
   const chapter = chapters?.find((c) => c.id === step?.chapterId);
 
+  // Audio: resolve either the local Blob (via IndexedDB) or the server URL.
+  const localAudioUrl = useAudioUrl(step?.audioId);
+  const audioUrl = step?.audioSrc ?? localAudioUrl;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [needsUserPlay, setNeedsUserPlay] = useState(false);
+
+  // On step change, attempt autoplay. Browsers block autoplay before any
+  // user gesture; if .play() rejects we expose a small play overlay button.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !audioUrl) {
+      setNeedsUserPlay(false);
+      return;
+    }
+    el.currentTime = 0;
+    const p = el.play();
+    if (p && typeof p.then === "function") {
+      p.then(() => setNeedsUserPlay(false)).catch(() => setNeedsUserPlay(true));
+    }
+  }, [audioUrl, currentId]);
+
   // Step ranges per chapter, for the ToC sidebar.
   const chapterRanges = useMemo(() => {
     if (!chapters?.length) return [];
@@ -198,20 +225,43 @@ export function GuidePlayer({
           step && (
             <>
               {/* Clicking the image advances only for linear steps. */}
-              <button
-                onClick={isDecision ? undefined : next}
-                disabled={isDecision}
-                className="relative max-w-full cursor-pointer disabled:cursor-default"
-                aria-label={isDecision ? "Decision step" : "Next step"}
-              >
-                <StepImage
-                  imageId={step.imageId}
-                  src={step.src}
-                  hotspot={step.hotspot}
-                  annotations={step.annotations}
-                  pulse={!isDecision}
-                />
-              </button>
+              <div className="relative">
+                <button
+                  onClick={isDecision ? undefined : next}
+                  disabled={isDecision}
+                  className="relative max-w-full cursor-pointer disabled:cursor-default"
+                  aria-label={isDecision ? "Decision step" : "Next step"}
+                >
+                  <StepImage
+                    imageId={step.imageId}
+                    src={step.src}
+                    hotspot={step.hotspot}
+                    annotations={step.annotations}
+                    pulse={!isDecision}
+                  />
+                </button>
+                {audioUrl && needsUserPlay && (
+                  <button
+                    onClick={() => audioRef.current?.play().catch(() => {})}
+                    className="absolute bottom-3 left-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-indigo-700 shadow-lg ring-1 ring-slate-200 hover:bg-white"
+                    title="Play voiceover"
+                    aria-label="Play voiceover"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                )}
+                {/* Hidden audio: controls via the small overlay above. */}
+                {audioUrl && (
+                  <audio
+                    ref={audioRef}
+                    src={audioUrl}
+                    onPlay={() => setNeedsUserPlay(false)}
+                    preload="auto"
+                  />
+                )}
+              </div>
 
               <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 {chapter && (

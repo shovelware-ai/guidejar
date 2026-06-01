@@ -1,4 +1,4 @@
-import { getImage } from "./db";
+import { getAudio, getImage } from "./db";
 import type { Guide, PublishInfo } from "./types";
 
 /** Serialise a Blob as a bare base64 string (no data: prefix). */
@@ -28,8 +28,9 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
 
   const steps = await Promise.all(
     guide.steps.map(async (s) => {
-      const blob = await getImage(s.imageId);
-      if (!blob) throw new Error(`Missing screenshot for step "${s.title}"`);
+      const imageBlob = await getImage(s.imageId);
+      if (!imageBlob) throw new Error(`Missing screenshot for step "${s.title}"`);
+      const audioBlob = s.audioId ? await getAudio(s.audioId) : null;
       return {
         id: s.id,
         title: s.title,
@@ -38,7 +39,13 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
         annotations: s.annotations,
         branches: s.branches,
         chapterId: s.chapterId,
-        image: { base64: await blobToBase64(blob), mime: blob.type || "image/png" },
+        image: {
+          base64: await blobToBase64(imageBlob),
+          mime: imageBlob.type || "image/png",
+        },
+        audio: audioBlob
+          ? { base64: await blobToBase64(audioBlob) }
+          : undefined,
       };
     }),
   );

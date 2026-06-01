@@ -45,6 +45,7 @@ export default function ViewerPage() {
     branches: s.branches,
     chapterId: s.chapterId,
     imageId: s.imageId,
+    audioId: s.audioId,
   }));
 
   return (

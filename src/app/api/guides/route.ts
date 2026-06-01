@@ -6,7 +6,7 @@ import {
   type PublishedStep,
   updateGuide,
 } from "@/lib/server/db";
-import { clearImages, writeImage } from "@/lib/server/storage";
+import { clearAudio, clearImages, writeAudio, writeImage } from "@/lib/server/storage";
 import { editKey as newEditKey, shortId } from "@/lib/server/ids";
 import type { Annotation, Branch, Chapter } from "@/lib/types";
 
@@ -15,6 +15,7 @@ export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
 // Soft caps to keep a single publish from filling the disk by accident.
 const MAX_STEPS = 200;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB per screenshot
+const MAX_AUDIO_BYTES = 4 * 1024 * 1024; // 4 MB per voiceover MP3
 
 type PublishStepInput = {
   /** Caller-provided step id, preserved verbatim so branch targets resolve.
@@ -27,6 +28,9 @@ type PublishStepInput = {
   branches?: Branch[];
   chapterId?: string;
   image: { base64: string; mime?: string };
+  /** Optional voiceover audio (MP3, base64).  When present the server saves
+   *  it to disk and the published step gets `hasAudio: true`. */
+  audio?: { base64: string };
 };
 
 type PublishBody = {
@@ -57,21 +61,37 @@ export async function POST(req: Request) {
     return bad(`Too many steps (max ${MAX_STEPS})`);
   }
 
-  // Decode + validate image bytes before touching any persistent state.
-  const decoded: { id: string; bytes: Buffer; step: PublishStepInput }[] = [];
+  // Decode + validate image (and optional audio) bytes before touching any
+  // persistent state — we want a 400 before half-writing files.
+  const decoded: {
+    imageBytes: Buffer;
+    audioBytes: Buffer | null;
+    step: PublishStepInput;
+  }[] = [];
   for (let i = 0; i < body.steps.length; i++) {
     const step = body.steps[i];
     if (!step?.image?.base64) return bad(`Step ${i + 1} missing image`);
-    let bytes: Buffer;
+    let imageBytes: Buffer;
     try {
-      bytes = Buffer.from(step.image.base64, "base64");
+      imageBytes = Buffer.from(step.image.base64, "base64");
     } catch {
-      return bad(`Step ${i + 1} has invalid base64`);
+      return bad(`Step ${i + 1} has invalid image base64`);
     }
-    if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) {
+    if (imageBytes.length === 0 || imageBytes.length > MAX_IMAGE_BYTES) {
       return bad(`Step ${i + 1} image is empty or too large`);
     }
-    decoded.push({ id: shortId(12), bytes, step });
+    let audioBytes: Buffer | null = null;
+    if (step.audio?.base64) {
+      try {
+        audioBytes = Buffer.from(step.audio.base64, "base64");
+      } catch {
+        return bad(`Step ${i + 1} has invalid audio base64`);
+      }
+      if (audioBytes.length === 0 || audioBytes.length > MAX_AUDIO_BYTES) {
+        return bad(`Step ${i + 1} audio is empty or too large`);
+      }
+    }
+    decoded.push({ imageBytes, audioBytes, step });
   }
 
   const me = await getCurrentUser();
@@ -95,23 +115,34 @@ export async function POST(req: Request) {
   }
 
   if (isUpdate) {
-    // Drop old screenshots; we're replacing the whole step set.
+    // Drop old assets; we're replacing the whole step set.
     await clearImages(publicId);
+    await clearAudio(publicId);
   }
 
-  for (const { id, bytes } of decoded) {
-    await writeImage(publicId, id, bytes);
+  // Assign stable step ids (preserve client-provided ones) before we write
+  // assets, so audio files can be keyed by the same step id.
+  const stepIds = decoded.map(({ step }) => step.id || shortId(12));
+  const imageIds = decoded.map(() => shortId(12));
+
+  for (let i = 0; i < decoded.length; i++) {
+    const { imageBytes, audioBytes } = decoded[i];
+    await writeImage(publicId, imageIds[i], imageBytes);
+    if (audioBytes) {
+      await writeAudio(publicId, stepIds[i], audioBytes);
+    }
   }
 
-  const steps: PublishedStep[] = decoded.map(({ id, step }, i) => ({
-    id: step.id || shortId(12),
-    imageId: id,
+  const steps: PublishedStep[] = decoded.map(({ step, audioBytes }, i) => ({
+    id: stepIds[i],
+    imageId: imageIds[i],
     title: step.title?.trim() || `Step ${i + 1}`,
     description: step.description ?? "",
     hotspot: step.hotspot,
     annotations: step.annotations,
     branches: step.branches,
     chapterId: step.chapterId,
+    hasAudio: !!audioBytes,
   }));
 
   // Drop chapters that aren't referenced by any step — keeps the model tidy.

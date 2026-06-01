@@ -8,7 +8,13 @@ import { Logo } from "@/components/Logo";
 import { ShareDialog } from "@/components/ShareDialog";
 import { StepCanvas } from "@/components/StepCanvas";
 import { Thumb } from "@/components/Thumb";
-import { deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
+import {
+  VoiceoverPanel,
+  VoicePicker,
+  type Voice,
+  VOICES,
+} from "@/components/VoiceoverPanel";
+import { deleteAudio, deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
 import {
   END_OF_GUIDE,
   type Branch,
@@ -114,6 +120,7 @@ export default function EditorPage() {
       }
     });
     await deleteImage(step.imageId);
+    if (step.audioId) await deleteAudio(step.audioId);
     setSelectedId((cur) =>
       cur === step.id ? (guide?.steps.find((s) => s.id !== step.id)?.id ?? null) : cur,
     );
@@ -146,6 +153,12 @@ export default function EditorPage() {
           onChange={(e) => update((g) => void (g.title = e.target.value))}
           className="min-w-0 flex-1 rounded-md border border-transparent px-2 py-1 text-sm font-medium hover:border-slate-200 focus:border-indigo-400 focus:outline-none"
           placeholder="Guide title"
+        />
+        <VoicePicker
+          voice={(VOICES as readonly string[]).includes(guide.voice ?? "")
+            ? (guide.voice as Voice)
+            : "alloy"}
+          onChange={(v) => update((g) => void (g.voice = v))}
         />
         <button
           onClick={() => setShareOpen(true)}
@@ -311,6 +324,24 @@ export default function EditorPage() {
                   placeholder="Describe what happens in this step (optional)"
                   rows={3}
                   className="w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+
+                <VoiceoverPanel
+                  text={`${selected.title}. ${selected.description}`}
+                  voice={
+                    (VOICES as readonly string[]).includes(guide.voice ?? "")
+                      ? (guide.voice as Voice)
+                      : "alloy"
+                  }
+                  audioId={selected.audioId}
+                  onAssign={(audioId) =>
+                    update((g) => {
+                      const s = g.steps.find((x) => x.id === selected.id);
+                      if (!s) return;
+                      if (audioId) s.audioId = audioId;
+                      else delete s.audioId;
+                    })
+                  }
                 />
 
                 <BranchesEditor

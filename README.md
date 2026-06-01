@@ -30,6 +30,16 @@ Then open http://localhost:3000.
 npm run build && npm start   # production build
 ```
 
+**Voiceover (optional).** To enable AI voiceover generation, set
+`OPENAI_API_KEY` before starting:
+
+```bash
+OPENAI_API_KEY=sk-... npm run dev
+```
+
+Without it the editor's voiceover controls are disabled with a hint;
+nothing else is affected.
+
 ## Tech stack
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
@@ -122,6 +132,29 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > Capturing on `pointerdown` means the screenshot shows the page *before* the
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
+
+## AI voiceover
+
+Each step can have an MP3 voiceover generated from its title + description by
+OpenAI's TTS (`gpt-4o-mini-tts`).  The audio plays automatically in the
+viewer; if the browser blocks autoplay before any user gesture, a small play
+button shows on the screenshot.
+
+**Flow.** The editor calls `POST /api/voiceover {text, voice}`; the server
+hits OpenAI and streams the MP3 back.  Bytes go into an IndexedDB `audio`
+store (so drafts work offline and the local viewer can play it too); the
+step gains an `audioId`.  On publish the bytes upload alongside images and
+the server saves them to `data/audio/<publicId>/<stepId>.mp3`; the public
+viewer fetches from `/api/guides/<publicId>/audio/<stepId>`.
+
+**Voice.** One guide-level setting (`Guide.voice`) feeds every generation.
+Available: alloy / echo / fable / onyx / nova / shimmer.  Changing it
+doesn't auto-regenerate — clicking Regenerate on a step re-renders with the
+current voice.
+
+**Limits.** Hard-capped at 4 MB per voiceover MP3 server-side, and 4096
+characters of input text (OpenAI's TTS limit).  When `OPENAI_API_KEY` isn't
+set the endpoint returns 503 and the editor disables the controls cleanly.
 
 ## Chapters
 
@@ -255,5 +288,6 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **AI voiceover and translation** — needs a chosen API provider and key.
+- **AI translation** — translate step text into multiple languages and let
+  the viewer pick.  Could share the OpenAI plumbing already in place.
 - Analytics on guide engagement.

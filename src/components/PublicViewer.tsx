@@ -25,6 +25,9 @@ export function PublicViewer({
     branches: s.branches,
     chapterId: s.chapterId,
     src: `/api/guides/${guide.publicId}/images/${s.imageId}`,
+    audioSrc: s.hasAudio
+      ? `/api/guides/${guide.publicId}/audio/${s.id}`
+      : undefined,
   }));
 
   return (

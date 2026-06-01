@@ -82,6 +82,9 @@ export type PublishedStep = {
   annotations?: Annotation[];
   branches?: Branch[];
   chapterId?: string;
+  /** When true, the server has an audio file at
+   *  data/audio/<publicId>/<id>.mp3 — viewer can fetch it. */
+  hasAudio?: boolean;
 };
 
 export type PublishedGuide = {

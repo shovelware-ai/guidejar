@@ -65,6 +65,9 @@ export type Step = {
   branches?: Branch[];
   /** References a `Chapter.id` on the parent guide. */
   chapterId?: string;
+  /** When set, an audio Blob lives in the IndexedDB `audio` store under
+   *  this key — generated voiceover for this step. */
+  audioId?: string;
 };
 
 /** Set on a guide once it has been published to the server. The editKey is a
@@ -82,6 +85,8 @@ export type Guide = {
   description: string;
   steps: Step[];
   chapters?: Chapter[];
+  /** Voice id used when generating voiceover (e.g. "alloy"). */
+  voice?: string;
   createdAt: number;
   updatedAt: number;
   publishedAs?: PublishInfo;

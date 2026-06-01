@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/server/auth";
 import { deleteGuideRow, getGuide, getGuideOwnership } from "@/lib/server/db";
-import { clearImages } from "@/lib/server/storage";
+import { clearAudio, clearImages } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 
@@ -33,5 +33,6 @@ export async function DELETE(
   }
   deleteGuideRow(publicId);
   await clearImages(publicId);
+  await clearAudio(publicId);
   return NextResponse.json({ ok: true });
 }
