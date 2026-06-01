@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import type { Annotation } from "@/lib/types";
+import type { Annotation, Branch } from "@/lib/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -66,11 +66,14 @@ export function db(): Database.Database {
 // ---- types ---------------------------------------------------------------
 
 export type PublishedStep = {
+  /** Stable step id preserved from the source guide; used as branch target. */
+  id: string;
   imageId: string;
   title: string;
   description: string;
   hotspot?: { x: number; y: number };
   annotations?: Annotation[];
+  branches?: Branch[];
 };
 
 export type PublishedGuide = {

@@ -31,10 +31,12 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
       const blob = await getImage(s.imageId);
       if (!blob) throw new Error(`Missing screenshot for step "${s.title}"`);
       return {
+        id: s.id,
         title: s.title,
         description: s.description,
         hotspot: s.hotspot,
         annotations: s.annotations,
+        branches: s.branches,
         image: { base64: await blobToBase64(blob), mime: blob.type || "image/png" },
       };
     }),

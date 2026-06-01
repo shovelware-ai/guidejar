@@ -9,7 +9,13 @@ import { ShareDialog } from "@/components/ShareDialog";
 import { StepCanvas } from "@/components/StepCanvas";
 import { Thumb } from "@/components/Thumb";
 import { deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
-import type { Guide, PublishInfo, Step } from "@/lib/types";
+import {
+  END_OF_GUIDE,
+  type Branch,
+  type Guide,
+  type PublishInfo,
+  type Step,
+} from "@/lib/types";
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -92,6 +98,13 @@ export default function EditorPage() {
   async function deleteStep(step: Step) {
     update((g) => {
       g.steps = g.steps.filter((s) => s.id !== step.id);
+      // Drop any branches in remaining steps that pointed to the deleted one.
+      for (const s of g.steps) {
+        if (s.branches) {
+          s.branches = s.branches.filter((b) => b.targetStepId !== step.id);
+          if (s.branches.length === 0) delete s.branches;
+        }
+      }
     });
     await deleteImage(step.imageId);
     setSelectedId((cur) =>
@@ -261,6 +274,19 @@ export default function EditorPage() {
                   className="w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                 />
 
+                <BranchesEditor
+                  step={selected}
+                  allSteps={guide.steps}
+                  onUpdate={(branches) =>
+                    update((g) => {
+                      const s = g.steps.find((x) => x.id === selected.id);
+                      if (!s) return;
+                      if (branches.length === 0) delete s.branches;
+                      else s.branches = branches;
+                    })
+                  }
+                />
+
                 <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3 text-sm">
                   {(() => {
                     const i = guide.steps.findIndex((s) => s.id === selected.id);
@@ -346,6 +372,94 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col items-center gap-2 text-sm text-slate-500">
         {children}
       </div>
+    </div>
+  );
+}
+
+function BranchesEditor({
+  step,
+  allSteps,
+  onUpdate,
+}: {
+  step: Step;
+  allSteps: Step[];
+  onUpdate: (branches: Branch[]) => void;
+}) {
+  const branches = step.branches ?? [];
+  const otherSteps = allSteps; // allow self-referencing; can be intentional
+
+  function add() {
+    const first = otherSteps.find((s) => s.id !== step.id) ?? otherSteps[0];
+    onUpdate([
+      ...branches,
+      {
+        id: uid(),
+        label: "",
+        targetStepId: first?.id ?? END_OF_GUIDE,
+      },
+    ]);
+  }
+  function patch(id: string, p: Partial<Branch>) {
+    onUpdate(branches.map((b) => (b.id === id ? { ...b, ...p } : b)));
+  }
+  function remove(id: string) {
+    onUpdate(branches.filter((b) => b.id !== id));
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Branches
+          </span>
+          {branches.length === 0 && (
+            <p className="text-xs text-slate-400">
+              Add choices to turn this into a decision step. Otherwise the
+              viewer advances linearly.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={add}
+          className="rounded-md bg-white px-2 py-1 text-xs font-medium ring-1 ring-slate-200 hover:bg-slate-100"
+        >
+          + Add branch
+        </button>
+      </div>
+      {branches.length > 0 && (
+        <ul className="space-y-2">
+          {branches.map((b) => (
+            <li key={b.id} className="flex items-center gap-2">
+              <input
+                value={b.label}
+                onChange={(e) => patch(b.id, { label: e.target.value })}
+                placeholder="Button label (e.g. “Yes, sign in”)"
+                className="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+              />
+              <select
+                value={b.targetStepId}
+                onChange={(e) => patch(b.id, { targetStepId: e.target.value })}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+              >
+                {otherSteps.map((s, i) => (
+                  <option key={s.id} value={s.id}>
+                    {i + 1}: {(s.title || "Untitled").slice(0, 32)}
+                  </option>
+                ))}
+                <option value={END_OF_GUIDE}>🏁 End guide</option>
+              </select>
+              <button
+                onClick={() => remove(b.id)}
+                aria-label="Remove branch"
+                className="rounded-md px-2 py-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

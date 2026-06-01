@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/db";
 import { clearImages, writeImage } from "@/lib/server/storage";
 import { editKey as newEditKey, shortId } from "@/lib/server/ids";
-import type { Annotation } from "@/lib/types";
+import type { Annotation, Branch } from "@/lib/types";
 
 export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
 
@@ -17,10 +17,14 @@ const MAX_STEPS = 200;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB per screenshot
 
 type PublishStepInput = {
+  /** Caller-provided step id, preserved verbatim so branch targets resolve.
+   *  If missing, server generates one. */
+  id?: string;
   title?: string;
   description?: string;
   hotspot?: { x: number; y: number };
   annotations?: Annotation[];
+  branches?: Branch[];
   image: { base64: string; mime?: string };
 };
 
@@ -98,11 +102,13 @@ export async function POST(req: Request) {
   }
 
   const steps: PublishedStep[] = decoded.map(({ id, step }, i) => ({
+    id: step.id || shortId(12),
     imageId: id,
     title: step.title?.trim() || `Step ${i + 1}`,
     description: step.description ?? "",
     hotspot: step.hotspot,
     annotations: step.annotations,
+    branches: step.branches,
   }));
 
   const guide = {

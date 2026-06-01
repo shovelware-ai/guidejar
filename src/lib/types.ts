@@ -31,6 +31,20 @@ export type TextAnnotation = {
 };
 export type Annotation = BlurAnnotation | ArrowAnnotation | TextAnnotation;
 
+/** Magic value: a branch targeting this finishes the guide. */
+export const END_OF_GUIDE = "__end__";
+
+/**
+ * A single branch out of a decision step. The viewer renders branches as
+ * choice buttons; picking one jumps to the target step (or ends the guide
+ * if `targetStepId === END_OF_GUIDE`).
+ */
+export type Branch = {
+  id: string;
+  label: string;
+  targetStepId: string; // step id or END_OF_GUIDE
+};
+
 /** A single step in a guide. The screenshot itself lives in the `images`
  *  object store keyed by `imageId`; the step only references it. */
 export type Step = {
@@ -40,6 +54,8 @@ export type Step = {
   description: string;
   hotspot?: Hotspot;
   annotations?: Annotation[];
+  /** When non-empty, the viewer shows choice buttons instead of Next. */
+  branches?: Branch[];
 };
 
 /** Set on a guide once it has been published to the server. The editKey is a

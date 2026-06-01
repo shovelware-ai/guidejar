@@ -62,8 +62,9 @@ src/
     StepImage.tsx              Screenshot + hotspot + annotations (local + server URLs)
     StepCanvas.tsx             Editor canvas: toolbar + drag-to-draw annotations
     AnnotationLayer.tsx        Pure render of blur/arrow/text overlays
+    GuidePlayer.tsx            Shared interactive player (linear + branching)
     Thumb.tsx                  Step-list thumbnail
-    PublicViewer.tsx           Player for a published guide (server-hosted images)
+    PublicViewer.tsx           Thin adapter mapping a published guide into GuidePlayer
     ShareDialog.tsx            Publish / update / unpublish modal
   lib/
     types.ts                  Guide / Step / Hotspot / PublishInfo
@@ -121,6 +122,31 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > Capturing on `pointerdown` means the screenshot shows the page *before* the
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
+
+## Branching paths
+
+Any step can carry a list of **branches** — `{ id, label, targetStepId }`.
+When present, the viewer hides Next and shows the branches as choice buttons
+instead. Picking one jumps to that step's id; the special target
+`__end__` finishes the guide.
+
+The model is **layered on top of linear navigation**, not a replacement:
+guides without branches keep working exactly as before. When *any* step in a
+guide has branches, the player switches subtle behaviours: it hides the
+linear progress bar (it's no longer meaningful), keeps Back available via a
+**history stack** so backing out of a choice returns to the decision step,
+and updates step counter copy.
+
+**Editor.** In the step details panel, a Branches section lets you add
+choices (label + target dropdown of every step, plus a "🏁 End guide"
+sentinel). Deleting a step also strips any dangling branches that pointed
+to it, so the model never carries broken references.
+
+**Implementation.** Steps gained a stable `id` field at the publish boundary
+so branch targets resolve across the local/server round-trip (the local
+editor already had `Step.id`; `PublishedStep` now carries it too). The
+shared `GuidePlayer` component is id-based throughout (not index-based), so
+the same code handles linear and branched flows.
 
 ## Annotations
 
@@ -207,6 +233,6 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **Branching paths and chapters** — multiple pathways through a guide; group steps.
+- **Chapters** — group steps into named sections with a table of contents in the viewer.
 - AI voiceover and translation.
 - Analytics on guide engagement.
