@@ -117,6 +117,12 @@ export default function MyGuidesPage() {
                 >
                   Open
                 </Link>
+                <Link
+                  href={`/me/guides/${g.publicId}`}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100"
+                >
+                  Analytics
+                </Link>
                 <button
                   onClick={() => unpublish(g)}
                   className="rounded-md px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"

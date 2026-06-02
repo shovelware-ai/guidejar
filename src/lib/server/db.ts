@@ -51,6 +51,23 @@ const MIGRATIONS: ((db: Database.Database) => void)[] = [
         ADD COLUMN chapters_json TEXT NOT NULL DEFAULT '[]';
     `);
   },
+  // v4 — analytics events. ON DELETE CASCADE keeps events tied to their
+  //      guide so unpublish wipes them automatically.
+  (db) => {
+    db.exec(`
+      CREATE TABLE events (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        public_id   TEXT NOT NULL REFERENCES guides(public_id) ON DELETE CASCADE,
+        event_type  TEXT NOT NULL,
+        step_id     TEXT,
+        session_id  TEXT NOT NULL,
+        props_json  TEXT NOT NULL DEFAULT '{}',
+        created_at  INTEGER NOT NULL
+      );
+      CREATE INDEX idx_events_public_created ON events(public_id, created_at);
+      CREATE INDEX idx_events_public_type    ON events(public_id, event_type);
+    `);
+  },
 ];
 
 function migrate(db: Database.Database) {
@@ -222,4 +239,121 @@ export function listUserGuides(userId: string): PublishedGuide[] {
     )
     .all(userId);
   return rows.map(rowToGuide);
+}
+
+// ---- Events --------------------------------------------------------------
+
+export type EventType =
+  | "guide_view"
+  | "step_view"
+  | "branch_picked"
+  | "guide_complete";
+
+export const EVENT_TYPES: EventType[] = [
+  "guide_view",
+  "step_view",
+  "branch_picked",
+  "guide_complete",
+];
+
+export function recordEvent(args: {
+  publicId: string;
+  eventType: EventType;
+  stepId?: string;
+  sessionId: string;
+  props?: Record<string, unknown>;
+}): void {
+  db()
+    .prepare(
+      `INSERT INTO events (public_id, event_type, step_id, session_id, props_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      args.publicId,
+      args.eventType,
+      args.stepId ?? null,
+      args.sessionId,
+      JSON.stringify(args.props ?? {}),
+      Date.now(),
+    );
+}
+
+export type GuideStats = {
+  totalViews: number;
+  uniqueSessions: number;
+  completions: number;
+  completionRate: number;          // 0..1
+  perStep: { stepId: string; views: number; uniqueSessions: number }[];
+  branchPicks: { stepId: string | null; branchId: string; count: number }[];
+  recent: { type: EventType; stepId: string | null; createdAt: number }[];
+};
+
+/** Aggregate stats for an owner dashboard. One DB roundtrip per metric;
+ *  no joins fancier than COUNT(DISTINCT) so SQLite handles it easily. */
+export function getGuideStats(publicId: string): GuideStats {
+  const d = db();
+
+  const totalViews = (d
+    .prepare<[string], { c: number }>(
+      "SELECT COUNT(*) AS c FROM events WHERE public_id = ? AND event_type = 'guide_view'",
+    )
+    .get(publicId)?.c) ?? 0;
+
+  const uniqueSessions = (d
+    .prepare<[string], { c: number }>(
+      "SELECT COUNT(DISTINCT session_id) AS c FROM events WHERE public_id = ?",
+    )
+    .get(publicId)?.c) ?? 0;
+
+  const completions = (d
+    .prepare<[string], { c: number }>(
+      "SELECT COUNT(DISTINCT session_id) AS c FROM events WHERE public_id = ? AND event_type = 'guide_complete'",
+    )
+    .get(publicId)?.c) ?? 0;
+
+  const perStep = d
+    .prepare<[string], { stepId: string; views: number; uniqueSessions: number }>(
+      `SELECT step_id AS stepId,
+              COUNT(*) AS views,
+              COUNT(DISTINCT session_id) AS uniqueSessions
+       FROM events
+       WHERE public_id = ? AND event_type = 'step_view' AND step_id IS NOT NULL
+       GROUP BY step_id`,
+    )
+    .all(publicId);
+
+  const branchPicks = d
+    .prepare<
+      [string],
+      { stepId: string | null; branchId: string; count: number }
+    >(
+      `SELECT step_id AS stepId,
+              json_extract(props_json, '$.branchId') AS branchId,
+              COUNT(*) AS count
+       FROM events
+       WHERE public_id = ? AND event_type = 'branch_picked'
+       GROUP BY step_id, branchId`,
+    )
+    .all(publicId)
+    .filter((r) => !!r.branchId);
+
+  const recent = d
+    .prepare<[string], { type: EventType; stepId: string | null; createdAt: number }>(
+      `SELECT event_type AS type, step_id AS stepId, created_at AS createdAt
+       FROM events
+       WHERE public_id = ?
+       ORDER BY created_at DESC
+       LIMIT 20`,
+    )
+    .all(publicId);
+
+  return {
+    totalViews,
+    uniqueSessions,
+    completions,
+    completionRate: uniqueSessions > 0 ? completions / uniqueSessions : 0,
+    perStep,
+    branchPicks,
+    recent,
+  };
 }

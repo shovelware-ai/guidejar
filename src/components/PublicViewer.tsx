@@ -38,6 +38,7 @@ export function PublicViewer({
       languages={guide.languages}
       title={guide.title}
       embed={embed}
+      analyticsPublicId={guide.publicId}
       footer={
         <>
           Made with{" "}

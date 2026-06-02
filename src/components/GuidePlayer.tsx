@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { StepImage } from "@/components/StepImage";
+import { track } from "@/lib/analytics";
 import { useAudioUrl } from "@/lib/useAudioUrl";
 import {
   END_OF_GUIDE,
@@ -48,6 +49,9 @@ export function GuidePlayer({
   embed = false,
   headerExtras,
   footer,
+  /** When set, the player fires analytics events to /api/g/<publicId>/events.
+   *  Omit to disable tracking entirely (used by the local editor preview). */
+  analyticsPublicId,
 }: {
   steps: PlayerStep[];
   chapters?: Chapter[];
@@ -58,6 +62,7 @@ export function GuidePlayer({
   headerExtras?: React.ReactNode;
   /** Footer rendered below the main area (e.g. "Made with Guidejar"). */
   footer?: React.ReactNode;
+  analyticsPublicId?: string;
 }) {
   // Source = whatever's in step.title / step.description.  `null` here.
   const [language, setLanguage] = useState<string | null>(null);
@@ -129,6 +134,27 @@ export function GuidePlayer({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [next, back]);
+
+  // ── Analytics ────────────────────────────────────────────────────────
+  // Tracking only fires when the player is rendering a published guide
+  // (analyticsPublicId set). One guide_view per mount, then step_view /
+  // guide_complete tracking the currentId transitions.
+
+  useEffect(() => {
+    if (!analyticsPublicId) return;
+    track(analyticsPublicId, { type: "guide_view" });
+    // intentionally on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analyticsPublicId]);
+
+  useEffect(() => {
+    if (!analyticsPublicId) return;
+    if (currentId === END_OF_GUIDE) {
+      track(analyticsPublicId, { type: "guide_complete" });
+    } else {
+      track(analyticsPublicId, { type: "step_view", stepId: currentId });
+    }
+  }, [analyticsPublicId, currentId]);
 
   const canBack = history.length > 0;
   const branches = step?.branches ?? [];
@@ -312,9 +338,16 @@ export function GuidePlayer({
                 {isDecision ? (
                   <BranchList
                     branches={branches}
-                    onPick={(b) =>
-                      goto(b.targetStepId)
-                    }
+                    onPick={(b) => {
+                      if (analyticsPublicId) {
+                        track(analyticsPublicId, {
+                          type: "branch_picked",
+                          stepId: step.id,
+                          props: { branchId: b.id, label: b.label },
+                        });
+                      }
+                      goto(b.targetStepId);
+                    }}
                   />
                 ) : (
                   <div className="mt-4 flex items-center justify-between">

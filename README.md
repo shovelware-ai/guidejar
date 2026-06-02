@@ -133,6 +133,60 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
 
+## Analytics
+
+Anonymous engagement tracking for **published guides**.  When the public
+viewer (`/g/<publicId>`) mounts, the `GuidePlayer` fires events to
+`POST /api/g/<publicId>/events`.  Signed-in owners get an analytics page
+at `/me/guides/<publicId>` with summary cards, a per-step funnel, branch
+pick counts, and a recent-activity log.
+
+**Privacy.**  What we store: a random per-visitor `session_id` (kept in
+`localStorage` as `gj_sid`), event type, optional step id, optional
+`props_json` (for branch ids).  What we don't store: IP addresses,
+user agents, anything that could fingerprint a visitor.  The schema is
+public-by-design.
+
+**Events recorded.**
+
+  - `guide_view`      — once per page load
+  - `step_view`       — every time a step is shown
+  - `branch_picked`   — when a choice button is clicked; props include `branchId`
+  - `guide_complete`  — when the viewer reaches the end screen
+
+The local editor's preview viewer (`/guide/<id>/view`) doesn't fire
+events — only the published `PublicViewer` does, by passing
+`analyticsPublicId` into `GuidePlayer`.
+
+**Schema (v4 migration).**
+
+  ```sql
+  CREATE TABLE events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    public_id  TEXT NOT NULL REFERENCES guides(public_id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    step_id    TEXT,
+    session_id TEXT NOT NULL,
+    props_json TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL
+  );
+  ```
+
+The `ON DELETE CASCADE` means unpublishing a guide drops its events at
+the same moment — verified.
+
+**API.**
+
+  ```
+  POST /api/g/<publicId>/events              Anonymous record-event sink
+  GET  /api/me/guides/<publicId>/stats       Owner-only aggregate stats
+  ```
+
+The owner stats query computes total views, unique sessions, completion
+count + rate, per-step session counts (the funnel), and per-branch pick
+counts in five small statements — no joins fancier than
+`COUNT(DISTINCT session_id)`.
+
 ## AI translation
 
 A guide can carry per-step translations of its title + description.  In the
@@ -308,8 +362,5 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 ## Roadmap
 
-Features from Guidejar not yet built, roughly in order of value:
-
-- **Analytics** — track views, completions, and per-step funnel for
-  published guides.
+The headline Guidejar feature set is built. Possible next moves:
 - Analytics on guide engagement.
