@@ -1,7 +1,12 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import type { Annotation, Branch, Chapter } from "@/lib/types";
+import type {
+  Annotation,
+  Branch,
+  Chapter,
+  StepTranslation,
+} from "@/lib/types";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -85,6 +90,7 @@ export type PublishedStep = {
   /** When true, the server has an audio file at
    *  data/audio/<publicId>/<id>.mp3 — viewer can fetch it. */
   hasAudio?: boolean;
+  translations?: Record<string, StepTranslation>;
 };
 
 export type PublishedGuide = {
@@ -93,6 +99,7 @@ export type PublishedGuide = {
   description: string;
   steps: PublishedStep[];
   chapters?: Chapter[];
+  languages?: string[];
   createdAt: number;
   updatedAt: number;
   userId?: string;
@@ -112,12 +119,20 @@ type GuideRow = {
 
 function rowToGuide(row: GuideRow): PublishedGuide {
   const chapters = (JSON.parse(row.chapters_json) as Chapter[]) ?? [];
+  const steps = JSON.parse(row.steps_json) as PublishedStep[];
+  // Derive the available language set from the translations actually on the
+  // steps — a target language with nothing translated yet has nothing to show.
+  const langs = new Set<string>();
+  for (const s of steps) {
+    for (const code of Object.keys(s.translations ?? {})) langs.add(code);
+  }
   return {
     publicId: row.public_id,
     title: row.title,
     description: row.description,
-    steps: JSON.parse(row.steps_json) as PublishedStep[],
+    steps,
     chapters: chapters.length > 0 ? chapters : undefined,
+    languages: langs.size > 0 ? [...langs].sort() : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     userId: row.user_id ?? undefined,

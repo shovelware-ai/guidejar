@@ -39,6 +39,7 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
         annotations: s.annotations,
         branches: s.branches,
         chapterId: s.chapterId,
+        translations: s.translations,
         image: {
           base64: await blobToBase64(imageBlob),
           mime: imageBlob.type || "image/png",

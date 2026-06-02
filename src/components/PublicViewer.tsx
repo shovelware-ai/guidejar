@@ -28,12 +28,14 @@ export function PublicViewer({
     audioSrc: s.hasAudio
       ? `/api/guides/${guide.publicId}/audio/${s.id}`
       : undefined,
+    translations: s.translations,
   }));
 
   return (
     <GuidePlayer
       steps={steps}
       chapters={guide.chapters}
+      languages={guide.languages}
       title={guide.title}
       embed={embed}
       footer={

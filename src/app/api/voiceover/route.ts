@@ -3,7 +3,7 @@ import {
   DEFAULT_VOICE,
   generateSpeech,
   isVoice,
-  tts_isConfigured,
+  openaiIsConfigured,
 } from "@/lib/server/openai";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
  *  Returns the raw MP3 — the editor stashes the bytes in IndexedDB and
  *  the publish flow uploads them like screenshots. */
 export async function POST(req: Request) {
-  if (!tts_isConfigured()) {
+  if (!openaiIsConfigured()) {
     return NextResponse.json(
       { error: "OPENAI_API_KEY is not set on the server." },
       { status: 503 },
@@ -48,5 +48,5 @@ export async function POST(req: Request) {
 
 /** Lets the editor light up / dim the voiceover UI without hard-coding env. */
 export async function GET() {
-  return NextResponse.json({ configured: tts_isConfigured() });
+  return NextResponse.json({ configured: openaiIsConfigured() });
 }

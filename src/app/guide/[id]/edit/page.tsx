@@ -14,6 +14,10 @@ import {
   type Voice,
   VOICES,
 } from "@/components/VoiceoverPanel";
+import {
+  LanguagesEditor,
+  TranslationsPanel,
+} from "@/components/TranslationsPanel";
 import { deleteAudio, deleteImage, getGuide, putImage, saveGuide, uid } from "@/lib/db";
 import {
   END_OF_GUIDE,
@@ -159,6 +163,15 @@ export default function EditorPage() {
             ? (guide.voice as Voice)
             : "alloy"}
           onChange={(v) => update((g) => void (g.voice = v))}
+        />
+        <LanguagesEditor
+          languages={guide.languages ?? []}
+          onChange={(next) =>
+            update((g) => {
+              if (next.length === 0) delete g.languages;
+              else g.languages = next;
+            })
+          }
         />
         <button
           onClick={() => setShareOpen(true)}
@@ -340,6 +353,19 @@ export default function EditorPage() {
                       if (!s) return;
                       if (audioId) s.audioId = audioId;
                       else delete s.audioId;
+                    })
+                  }
+                />
+
+                <TranslationsPanel
+                  step={selected}
+                  languages={guide.languages ?? []}
+                  onChange={(translations) =>
+                    update((g) => {
+                      const s = g.steps.find((x) => x.id === selected.id);
+                      if (!s) return;
+                      if (translations) s.translations = translations;
+                      else delete s.translations;
                     })
                   }
                 />

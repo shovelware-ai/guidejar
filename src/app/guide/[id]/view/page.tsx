@@ -46,12 +46,14 @@ export default function ViewerPage() {
     chapterId: s.chapterId,
     imageId: s.imageId,
     audioId: s.audioId,
+    translations: s.translations,
   }));
 
   return (
     <GuidePlayer
       steps={steps}
       chapters={guide.chapters}
+      languages={guide.languages}
       title={guide.title}
       headerExtras={
         <Link

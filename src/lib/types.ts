@@ -54,6 +54,12 @@ export type Chapter = {
 
 /** A single step in a guide. The screenshot itself lives in the `images`
  *  object store keyed by `imageId`; the step only references it. */
+/** Translated copies of a step's text content, keyed by BCP-47 language code. */
+export type StepTranslation = {
+  title?: string;
+  description?: string;
+};
+
 export type Step = {
   id: string;
   imageId: string;
@@ -68,6 +74,9 @@ export type Step = {
   /** When set, an audio Blob lives in the IndexedDB `audio` store under
    *  this key — generated voiceover for this step. */
   audioId?: string;
+  /** Translated text per language code (e.g. "es", "fr-CA"). The source
+   *  language stays in `title` / `description`. */
+  translations?: Record<string, StepTranslation>;
 };
 
 /** Set on a guide once it has been published to the server. The editKey is a
@@ -87,6 +96,8 @@ export type Guide = {
   chapters?: Chapter[];
   /** Voice id used when generating voiceover (e.g. "alloy"). */
   voice?: string;
+  /** Target language codes this guide is translated into. */
+  languages?: string[];
   createdAt: number;
   updatedAt: number;
   publishedAs?: PublishInfo;

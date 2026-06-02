@@ -10,6 +10,7 @@ import {
   type Branch,
   type Chapter,
   type Hotspot,
+  type StepTranslation,
 } from "@/lib/types";
 
 /** Player-facing step shape. Either `imageId` (resolved via IndexedDB) or
@@ -30,6 +31,7 @@ export type PlayerStep = {
   audioId?: string;
   /** Direct URL — used by the public viewer to point at the server. */
   audioSrc?: string;
+  translations?: Record<string, StepTranslation>;
 };
 
 /**
@@ -41,6 +43,7 @@ export type PlayerStep = {
 export function GuidePlayer({
   steps,
   chapters,
+  languages,
   title,
   embed = false,
   headerExtras,
@@ -48,6 +51,7 @@ export function GuidePlayer({
 }: {
   steps: PlayerStep[];
   chapters?: Chapter[];
+  languages?: string[];
   title?: string;
   embed?: boolean;
   /** Slot rendered at the right of the header (e.g. Edit link). */
@@ -55,6 +59,8 @@ export function GuidePlayer({
   /** Footer rendered below the main area (e.g. "Made with Guidejar"). */
   footer?: React.ReactNode;
 }) {
+  // Source = whatever's in step.title / step.description.  `null` here.
+  const [language, setLanguage] = useState<string | null>(null);
   const total = steps.length;
   const hasBranches = useMemo(
     () => steps.some((s) => (s.branches?.length ?? 0) > 0),
@@ -177,6 +183,13 @@ export function GuidePlayer({
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {title}
           </span>
+          {languages && languages.length > 0 && (
+            <LanguagePicker
+              languages={languages}
+              value={language}
+              onChange={setLanguage}
+            />
+          )}
           {chapterRanges.length > 0 && (
             <TocMenu
               ranges={chapterRanges}
@@ -276,14 +289,25 @@ export function GuidePlayer({
                       : "Step"
                     : `Step ${currentIndex + 1} of ${total}`}
                 </div>
-                <h2 className="text-lg font-semibold">
-                  {step.title || "Untitled step"}
-                </h2>
-                {step.description && (
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
-                    {step.description}
-                  </p>
-                )}
+                {(() => {
+                  const localized = language
+                    ? (step.translations?.[language] ?? null)
+                    : null;
+                  const displayTitle =
+                    localized?.title?.trim() || step.title || "Untitled step";
+                  const displayDescription =
+                    localized?.description?.trim() ?? step.description;
+                  return (
+                    <>
+                      <h2 className="text-lg font-semibold">{displayTitle}</h2>
+                      {displayDescription && (
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
+                          {displayDescription}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {isDecision ? (
                   <BranchList
@@ -335,6 +359,32 @@ export function GuidePlayer({
         </footer>
       )}
     </div>
+  );
+}
+
+function LanguagePicker({
+  languages,
+  value,
+  onChange,
+}: {
+  languages: string[];
+  value: string | null;
+  onChange: (lang: string | null) => void;
+}) {
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs uppercase focus:border-indigo-400 focus:outline-none"
+      title="Language"
+    >
+      <option value="">Source</option>
+      {languages.map((code) => (
+        <option key={code} value={code}>
+          {code}
+        </option>
+      ))}
+    </select>
   );
 }
 

@@ -133,6 +133,28 @@ Files: `background.js` (recording state + `captureVisibleTab`), `recorder.js`
 > click — exactly the "click here" state you want. Fast in-page navigations can
 > occasionally outrun a capture; that step is skipped rather than wrong.
 
+## AI translation
+
+A guide can carry per-step translations of its title + description.  In the
+editor, add target language codes (BCP-47, e.g. `es`, `fr-CA`, `ja`) in the
+toolbar.  Each step then shows a Translations subsection — one row per
+language with an editable title + description and a Generate button that
+hits `POST /api/translate` (OpenAI `gpt-4o-mini`, JSON-mode).
+
+**Viewer.** When a published guide has any translation, a language picker
+shows up in the header.  Picking a language renders that language per step,
+falling back to source text when a particular step or field hasn't been
+translated yet (partial translations are first-class).
+
+**Where languages come from on the public side.** `PublishedGuide.languages`
+is **derived on read** from the union of translation keys actually present
+on the steps — a language with no translated copy anywhere just doesn't show
+up.  No DB column, no migration.
+
+**Env gate.** Same as voiceover: without `OPENAI_API_KEY` the endpoint
+returns 503 and the editor's Generate buttons are hidden in favour of a
+hint.  Manual editing still works.
+
 ## AI voiceover
 
 Each step can have an MP3 voiceover generated from its title + description by
@@ -288,6 +310,6 @@ id must match `[A-Za-z0-9_-]{1,128}`).
 
 Features from Guidejar not yet built, roughly in order of value:
 
-- **AI translation** — translate step text into multiple languages and let
-  the viewer pick.  Could share the OpenAI plumbing already in place.
+- **Analytics** — track views, completions, and per-step funnel for
+  published guides.
 - Analytics on guide engagement.

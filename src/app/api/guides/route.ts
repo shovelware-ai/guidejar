@@ -8,7 +8,12 @@ import {
 } from "@/lib/server/db";
 import { clearAudio, clearImages, writeAudio, writeImage } from "@/lib/server/storage";
 import { editKey as newEditKey, shortId } from "@/lib/server/ids";
-import type { Annotation, Branch, Chapter } from "@/lib/types";
+import type {
+  Annotation,
+  Branch,
+  Chapter,
+  StepTranslation,
+} from "@/lib/types";
 
 export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
 
@@ -27,6 +32,7 @@ type PublishStepInput = {
   annotations?: Annotation[];
   branches?: Branch[];
   chapterId?: string;
+  translations?: Record<string, StepTranslation>;
   image: { base64: string; mime?: string };
   /** Optional voiceover audio (MP3, base64).  When present the server saves
    *  it to disk and the published step gets `hasAudio: true`. */
@@ -142,6 +148,7 @@ export async function POST(req: Request) {
     annotations: step.annotations,
     branches: step.branches,
     chapterId: step.chapterId,
+    translations: step.translations,
     hasAudio: !!audioBytes,
   }));
 

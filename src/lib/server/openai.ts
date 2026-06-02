@@ -17,9 +17,10 @@ export function isVoice(v: unknown): v is Voice {
   return typeof v === "string" && (VOICES as readonly string[]).includes(v);
 }
 
-/** Voiceover is opt-in: if no key is set, the server returns 503 and the
- *  editor disables the UI rather than failing later in the OpenAI client. */
-export function tts_isConfigured(): boolean {
+/** AI features (voiceover, translation) are opt-in: if no key is set, the
+ *  server returns 503 and the editor disables the UI rather than failing
+ *  later in the OpenAI client. */
+export function openaiIsConfigured(): boolean {
   return !!process.env.OPENAI_API_KEY;
 }
 
@@ -56,4 +57,52 @@ export async function generateSpeech(
   });
   const arrayBuf = await res.arrayBuffer();
   return Buffer.from(arrayBuf);
+}
+
+/**
+ * Translate a step's title + description into the target language.
+ * Both fields go in one call so the model can preserve a consistent tone.
+ * The JSON-shaped response is parsed; on parse failure we surface a clear
+ * error rather than feeding garbage back to the caller.
+ */
+export async function translateStep(args: {
+  targetLanguage: string;
+  title: string;
+  description: string;
+}): Promise<{ title: string; description: string }> {
+  const { targetLanguage, title, description } = args;
+  if (!title.trim() && !description.trim()) {
+    return { title: "", description: "" };
+  }
+  const completion = await client().chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You translate short UI walkthrough copy. Return JSON with keys `title` and `description` only — no extra commentary. Preserve placeholders, button names, and product names verbatim. Match the source's tone and brevity.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          target_language: targetLanguage,
+          title,
+          description,
+        }),
+      },
+    ],
+  });
+  const raw = completion.choices[0]?.message?.content ?? "{}";
+  let parsed: { title?: unknown; description?: unknown };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Translation model returned malformed JSON.");
+  }
+  return {
+    title: typeof parsed.title === "string" ? parsed.title : title,
+    description:
+      typeof parsed.description === "string" ? parsed.description : description,
+  };
 }
