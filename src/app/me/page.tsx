@@ -57,7 +57,7 @@ export default function MyGuidesPage() {
     <div className="flex min-h-full flex-col">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-          <Logo />
+          <Logo href="/app" />
           <AuthNav />
         </div>
       </header>
@@ -85,7 +85,7 @@ export default function MyGuidesPage() {
               Guides you publish while signed in will show up here.
             </p>
             <Link
-              href="/"
+              href="/app"
               className="mt-4 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
             >
               Go to dashboard

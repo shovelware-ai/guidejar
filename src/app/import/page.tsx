@@ -72,7 +72,7 @@ export default function ImportPage() {
     <div className="flex min-h-full flex-col">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto w-full max-w-5xl px-6 py-4">
-          <Logo />
+          <Logo href="/app" />
         </div>
       </header>
 
@@ -108,7 +108,7 @@ export default function ImportPage() {
                   Choose .json file
                 </button>
                 <Link
-                  href="/"
+                  href="/app"
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium transition hover:bg-slate-50"
                 >
                   Cancel

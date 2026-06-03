@@ -27,7 +27,7 @@ export default function LoginPage() {
         setError(data.error ?? "Sign in failed");
         return;
       }
-      router.push("/");
+      router.push("/app");
       router.refresh();
     } finally {
       setSubmitting(false);

@@ -26,6 +26,9 @@ npm run dev
 
 Then open http://localhost:3000.
 
+The root `/` is the marketing landing page; the app dashboard lives at
+`/app`. Sign-in / sign-up redirect to `/app` once a session is established.
+
 ```bash
 npm run build && npm start   # production build
 ```
@@ -52,7 +55,8 @@ nothing else is affected.
 ```
 src/
   app/
-    page.tsx                                Dashboard — list / create / delete guides
+    page.tsx                                Marketing landing page
+    app/page.tsx                            Dashboard — list / create / delete guides
     guide/[id]/edit/page.tsx                Step editor (screenshots, hotspots, captions, Share)
     guide/[id]/view/page.tsx                Local interactive viewer / player
     import/page.tsx                         Receives captures from the extension or .json

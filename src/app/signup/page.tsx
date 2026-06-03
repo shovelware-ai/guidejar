@@ -27,7 +27,7 @@ export default function SignupPage() {
         setError(data.error ?? "Sign up failed");
         return;
       }
-      router.push("/");
+      router.push("/app");
       router.refresh();
     } finally {
       setSubmitting(false);

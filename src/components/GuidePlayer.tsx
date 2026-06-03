@@ -49,6 +49,9 @@ export function GuidePlayer({
   embed = false,
   headerExtras,
   footer,
+  /** Logo destination. App-internal viewers pass "/app"; the public viewer
+   *  leaves it at "/" so visitors land on the marketing site. */
+  logoHref = "/",
   /** When set, the player fires analytics events to /api/g/<publicId>/events.
    *  Omit to disable tracking entirely (used by the local editor preview). */
   analyticsPublicId,
@@ -62,6 +65,7 @@ export function GuidePlayer({
   headerExtras?: React.ReactNode;
   /** Footer rendered below the main area (e.g. "Made with Guidejar"). */
   footer?: React.ReactNode;
+  logoHref?: string;
   analyticsPublicId?: string;
 }) {
   // Source = whatever's in step.title / step.description.  `null` here.
@@ -205,7 +209,7 @@ export function GuidePlayer({
     <div className="flex h-screen flex-col">
       {!embed && (
         <header className="flex items-center gap-4 border-b border-slate-200 bg-white px-6 py-3">
-          <Logo />
+          <Logo href={logoHref} />
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {title}
           </span>

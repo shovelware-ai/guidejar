@@ -134,7 +134,7 @@ export default function EditorPage() {
     return (
       <CenteredMessage>
         <p>That guide doesn’t exist.</p>
-        <Link href="/" className="text-indigo-600 underline">
+        <Link href="/app" className="text-indigo-600 underline">
           Back to dashboard
         </Link>
       </CenteredMessage>
@@ -151,7 +151,7 @@ export default function EditorPage() {
     <div className="flex h-screen flex-col">
       {/* Top bar */}
       <header className="flex items-center gap-4 border-b border-slate-200 bg-white px-6 py-3">
-        <Logo />
+        <Logo href="/app" />
         <input
           value={guide.title}
           onChange={(e) => update((g) => void (g.title = e.target.value))}

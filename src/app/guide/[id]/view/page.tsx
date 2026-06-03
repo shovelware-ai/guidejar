@@ -21,7 +21,7 @@ export default function ViewerPage() {
       <div className="grid flex-1 place-items-center">
         <div className="flex flex-col items-center gap-2 text-sm text-slate-500">
           <p>That guide doesn’t exist.</p>
-          <Link href="/" className="text-indigo-600 underline">
+          <Link href="/app" className="text-indigo-600 underline">
             Back to dashboard
           </Link>
         </div>
@@ -55,6 +55,7 @@ export default function ViewerPage() {
       chapters={guide.chapters}
       languages={guide.languages}
       title={guide.title}
+      logoHref="/app"
       headerExtras={
         <Link
           href={`/guide/${guide.id}/edit`}
