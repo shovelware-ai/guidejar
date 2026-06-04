@@ -65,7 +65,9 @@ export async function publishGuide(guide: Guide): Promise<PublishInfo> {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const err = (await res
+      .json()
+      .catch(() => ({ error: res.statusText }))) as { error?: string };
     throw new Error(err.error ?? "Publish failed");
   }
   const { publicId, editKey } = (await res.json()) as {

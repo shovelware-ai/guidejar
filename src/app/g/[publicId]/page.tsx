@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getGuide } from "@/lib/server/db";
+import { getDb, getGuide } from "@/lib/server/db";
 import { PublicViewer } from "@/components/PublicViewer";
 
 export const runtime = "nodejs";
@@ -15,7 +15,8 @@ export async function generateMetadata({
   params,
 }: RouteProps): Promise<Metadata> {
   const { publicId } = await params;
-  const guide = getGuide(publicId);
+  const db = await getDb();
+  const guide = await getGuide(db, publicId);
   if (!guide) return { title: "Guide not found · Guidejar" };
   return {
     title: `${guide.title} · Guidejar`,
@@ -31,7 +32,8 @@ export default async function PublicGuidePage({
 }: RouteProps) {
   const { publicId } = await params;
   const { embed } = await searchParams;
-  const guide = getGuide(publicId);
+  const db = await getDb();
+  const guide = await getGuide(db, publicId);
   if (!guide) notFound();
   return <PublicViewer guide={guide} embed={embed === "1"} />;
 }

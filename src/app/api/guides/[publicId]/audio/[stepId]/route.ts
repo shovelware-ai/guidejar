@@ -7,18 +7,19 @@ export async function GET(
   { params }: { params: Promise<{ publicId: string; stepId: string }> },
 ) {
   const { publicId, stepId } = await params;
-  let bytes: Buffer | null;
+  let object: Awaited<ReturnType<typeof readAudio>>;
   try {
-    bytes = await readAudio(publicId, stepId);
+    object = await readAudio(publicId, stepId);
   } catch {
     return new Response("Not found", { status: 404 });
   }
-  if (!bytes) return new Response("Not found", { status: 404 });
-  return new Response(new Uint8Array(bytes), {
+  if (!object) return new Response("Not found", { status: 404 });
+  return new Response(object.body, {
     status: 200,
     headers: {
-      "Content-Type": "audio/mpeg",
+      "Content-Type": object.httpMetadata?.contentType ?? "audio/mpeg",
       "Cache-Control": "public, max-age=31536000, immutable",
+      "ETag": object.httpEtag,
     },
   });
 }

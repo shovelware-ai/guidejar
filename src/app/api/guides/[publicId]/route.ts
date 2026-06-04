@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/server/auth";
-import { deleteGuideRow, getGuide, getGuideOwnership } from "@/lib/server/db";
+import { deleteGuideRow, getDb, getGuide, getGuideOwnership } from "@/lib/server/db";
 import { clearAudio, clearImages } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
@@ -10,7 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ publicId: string }> },
 ) {
   const { publicId } = await params;
-  const guide = getGuide(publicId);
+  const db = await getDb();
+  const guide = await getGuide(db, publicId);
   if (!guide) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -22,16 +23,17 @@ export async function DELETE(
   { params }: { params: Promise<{ publicId: string }> },
 ) {
   const { publicId } = await params;
-  const owner = getGuideOwnership(publicId);
+  const db = await getDb();
+  const owner = await getGuideOwnership(db, publicId);
   if (!owner) return NextResponse.json({ ok: true }); // already gone
   const key = new URL(req.url).searchParams.get("key");
-  const me = await getCurrentUser();
+  const me = await getCurrentUser(db);
   const byKey = !!key && key === owner.editKey;
   const byUser = !!me && owner.userId === me.id;
   if (!byKey && !byUser) {
     return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
-  deleteGuideRow(publicId);
+  await deleteGuideRow(db, publicId);
   await clearImages(publicId);
   await clearAudio(publicId);
   return NextResponse.json({ ok: true });

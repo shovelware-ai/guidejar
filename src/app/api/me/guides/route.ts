@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/server/auth";
-import { listUserGuides } from "@/lib/server/db";
+import { getDb, listUserGuides } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const me = await getCurrentUser();
+  const db = await getDb();
+  const me = await getCurrentUser(db);
   if (!me) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
   return NextResponse.json({
-    guides: listUserGuides(me.id).map((g) => ({
+    guides: (await listUserGuides(db, me.id)).map((g) => ({
       publicId: g.publicId,
       title: g.title,
       stepCount: g.steps.length,

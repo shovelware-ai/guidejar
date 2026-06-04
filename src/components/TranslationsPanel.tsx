@@ -24,7 +24,7 @@ export function TranslationsPanel({
   useEffect(() => {
     fetch("/api/translate")
       .then((r) => r.json())
-      .then((d: { configured: boolean }) => setConfigured(d.configured))
+      .then((d) => setConfigured((d as { configured: boolean }).configured))
       .catch(() => setConfigured(false));
   }, []);
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { setSessionCookie } from "@/lib/server/auth";
+import { getDb } from "@/lib/server/db";
 import { verifyPassword } from "@/lib/server/users";
 
 export const runtime = "nodejs";
@@ -19,9 +20,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const user = await verifyPassword(email, password);
+  const db = await getDb();
+  const user = await verifyPassword(db, email, password);
   if (!user) {
-    // Same message regardless of which one was wrong.
     return NextResponse.json(
       { error: "That email and password don't match." },
       { status: 401 },

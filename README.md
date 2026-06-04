@@ -19,36 +19,90 @@ server required. Guides and screenshots are stored in your browser via IndexedDB
 
 ## Running it
 
+Two dev modes are supported:
+
+**Workers dev (recommended — same runtime as production):**
+
 ```bash
 npm install
-npm run dev
+npm run db:local          # create the local D1 + apply 0001_init.sql
+npm run cf:dev            # opennextjs-cloudflare build && wrangler dev
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:8787. Real workerd, D1 + R2 emulated in
+`.wrangler/`. This is what the production deploy actually runs.
+
+**Plain `next dev` (faster UI iteration):**
+
+```bash
+npm install
+npm run db:local
+npm run dev               # next dev on :3000
+```
+
+`initOpenNextCloudflareForDev()` is wired in `next.config.ts` so
+`next dev` can resolve the same D1/R2 bindings via getCloudflareContext().
 
 The root `/` is the marketing landing page; the app dashboard lives at
 `/app`. Sign-in / sign-up redirect to `/app` once a session is established.
 
+**Optional environment**
+
+  - `OPENAI_API_KEY` — enables AI voiceover and AI translation. Without it,
+    the editor's Generate buttons disable themselves and the endpoints return
+    503. Set via `.dev.vars` locally or `wrangler secret put OPENAI_API_KEY`
+    for production.
+  - `SESSION_SECRET` — HMAC secret for session cookies. Locally a dev
+    placeholder is used; **production deploys MUST set this** via
+    `wrangler secret put SESSION_SECRET` (any sufficiently long random
+    string).
+
+## Deploy
+
+Standard shovelware model: Cloudflare Workers + D1 + R2 on the
+`guidejar.shovelware.ai` custom domain. The Next.js app is bundled for
+Workers via `@opennextjs/cloudflare`; SQLite lives in D1; screenshot and
+voiceover blobs live in R2 (`guidejar-assets` bucket); the session secret
+and OPENAI key live as Workers secrets.
+
+First-time deploy (one-shot):
+
 ```bash
-npm run build && npm start   # production build
+export CLOUDFLARE_API_TOKEN=<token>     # see shovelware-deploy skill for token scopes
+
+npm run db:create                       # creates the D1 — prints database_id
+# Paste that id into wrangler.jsonc → d1_databases[0].database_id
+npx wrangler r2 bucket create guidejar-assets
+
+# Required production secrets:
+npx wrangler secret put SESSION_SECRET  # any 32+ char random string
+npx wrangler secret put OPENAI_API_KEY  # only if you want voiceover + translation
+
+npm run db:remote                       # apply 0001_init.sql to the live D1
+npm run deploy                          # opennextjs-cloudflare build && wrangler deploy
 ```
 
-**Voiceover (optional).** To enable AI voiceover generation, set
-`OPENAI_API_KEY` before starting:
+The custom domain (`guidejar.shovelware.ai`) is provisioned automatically
+from the `routes` entry — first deploy may take ~1–2 minutes for TLS to
+go active.
 
-```bash
-OPENAI_API_KEY=sk-... npm run dev
-```
+Subsequent deploys are just `npm run deploy`. If the schema changes, add a
+new `migrations/NNNN_*.sql` and run `npm run db:remote` first.
 
-Without it the editor's voiceover controls are disabled with a hint;
-nothing else is affected.
+Local and remote D1 are **independent stores** — both need their own
+`db:local` / `db:remote` migration applies.
 
 ## Tech stack
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS v4** for styling
-- **IndexedDB** (via [`idb`](https://github.com/jakearchibald/idb)) for local
-  persistence of guide data and screenshot blobs
+- **Cloudflare Workers** (via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare))
+  for production hosting
+- **Cloudflare D1** (managed SQLite) for published-guide metadata, accounts,
+  analytics
+- **Cloudflare R2** for screenshot + voiceover MP3 storage
+- **IndexedDB** (via [`idb`](https://github.com/jakearchibald/idb)) for *local*
+  draft persistence in the editor (drafts never leave the browser until publish)
 
 ## Project structure
 
@@ -88,14 +142,17 @@ src/
     import.ts                 Turn a captured session into a stored guide
     publish.ts                Publish a local guide to the server, unpublish, share URL
     server/
-      db.ts                   SQLite + versioned migrations + CRUD
-      storage.ts              Read/write screenshot PNGs under data/images/
-      ids.ts                  Short URL ids + per-guide edit keys
-      auth.ts                 HMAC-signed session cookies; getCurrentUser
+      db.ts                   D1 query layer (async, takes env.DB)
+      storage.ts              R2 read/write/clear-by-prefix for images + audio
+      ids.ts                  Short URL ids + per-guide edit keys (Web Crypto)
+      auth.ts                 HMAC-signed session cookies (Web Crypto subtle)
       users.ts                User CRUD + bcrypt password verify
+      openai.ts               TTS + translation (env-gated by OPENAI_API_KEY)
 
 extension/                    Chrome (MV3) capture extension — see below
-data/                         (gitignored) SQLite db + screenshot files + session secret
+migrations/0001_init.sql      D1 schema (consolidated v1→v4)
+wrangler.jsonc                Workers + D1 + R2 + custom domain config
+open-next.config.ts           OpenNext Cloudflare adapter config
 ```
 
 Screenshot bytes live in a separate `images` object store keyed by id; guide

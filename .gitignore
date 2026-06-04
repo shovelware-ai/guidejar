@@ -40,5 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# server data (sqlite db + uploaded screenshots)
+# server data (legacy local-fs storage, pre-Cloudflare port)
 /data/
+
+# Cloudflare / Wrangler
+/.wrangler/
+/.open-next/
+/.dev.vars

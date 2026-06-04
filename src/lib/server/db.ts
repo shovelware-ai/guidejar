@@ -1,95 +1,24 @@
-import Database from "better-sqlite3";
-import { mkdirSync } from "node:fs";
-import path from "node:path";
 import type {
   Annotation,
   Branch,
   Chapter,
   StepTranslation,
 } from "@/lib/types";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-mkdirSync(DATA_DIR, { recursive: true });
+/**
+ * D1 data layer.  Every function takes the D1 binding (env.DB) as its first
+ * argument; API routes pull it out of getCloudflareContext() and pass it in.
+ *
+ *   const { env } = await getCloudflareContext({ async: true });
+ *   const guide = await getGuide(env.DB, publicId);
+ */
 
-const g = globalThis as unknown as { __guidejarDb?: Database.Database };
-
-/** Versioned schema migrations. Each migration runs once; current version is
- *  recorded in SQLite's user_version pragma. Append new ones at the bottom. */
-const MIGRATIONS: ((db: Database.Database) => void)[] = [
-  // v1 — initial guides table.
-  (db) => {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS guides (
-        public_id   TEXT PRIMARY KEY,
-        edit_key    TEXT NOT NULL,
-        title       TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        steps_json  TEXT NOT NULL,
-        created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL
-      );
-    `);
-  },
-  // v2 — accounts + per-guide ownership.
-  (db) => {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id            TEXT PRIMARY KEY,
-        email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
-        password_hash TEXT NOT NULL,
-        created_at    INTEGER NOT NULL
-      );
-      ALTER TABLE guides
-        ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE SET NULL;
-      CREATE INDEX idx_guides_user ON guides(user_id);
-    `);
-  },
-  // v3 — chapters. Stored as JSON column; existing rows get '[]'.
-  (db) => {
-    db.exec(`
-      ALTER TABLE guides
-        ADD COLUMN chapters_json TEXT NOT NULL DEFAULT '[]';
-    `);
-  },
-  // v4 — analytics events. ON DELETE CASCADE keeps events tied to their
-  //      guide so unpublish wipes them automatically.
-  (db) => {
-    db.exec(`
-      CREATE TABLE events (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        public_id   TEXT NOT NULL REFERENCES guides(public_id) ON DELETE CASCADE,
-        event_type  TEXT NOT NULL,
-        step_id     TEXT,
-        session_id  TEXT NOT NULL,
-        props_json  TEXT NOT NULL DEFAULT '{}',
-        created_at  INTEGER NOT NULL
-      );
-      CREATE INDEX idx_events_public_created ON events(public_id, created_at);
-      CREATE INDEX idx_events_public_type    ON events(public_id, event_type);
-    `);
-  },
-];
-
-function migrate(db: Database.Database) {
-  const current = db.pragma("user_version", { simple: true }) as number;
-  for (let v = current; v < MIGRATIONS.length; v++) {
-    db.transaction(() => {
-      MIGRATIONS[v](db);
-      db.pragma(`user_version = ${v + 1}`);
-    })();
-  }
-}
-
-function open() {
-  const db = new Database(path.join(DATA_DIR, "guidejar.db"));
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  migrate(db);
-  return db;
-}
-
-export function db(): Database.Database {
-  return (g.__guidejarDb ??= open());
+/** Convenience: resolves env.DB without each call site having to know about
+ *  OpenNext.  Don't use inside lib code; reserve for API routes. */
+export async function getDb(): Promise<D1Database> {
+  const { env } = await getCloudflareContext({ async: true });
+  return env.DB;
 }
 
 // ---- types ---------------------------------------------------------------
@@ -104,8 +33,8 @@ export type PublishedStep = {
   annotations?: Annotation[];
   branches?: Branch[];
   chapterId?: string;
-  /** When true, the server has an audio file at
-   *  data/audio/<publicId>/<id>.mp3 — viewer can fetch it. */
+  /** When true, the server has an audio file at audio/<publicId>/<id>.mp3
+   *  in the R2 bucket — viewer can fetch it. */
   hasAudio?: boolean;
   translations?: Record<string, StepTranslation>;
 };
@@ -158,38 +87,42 @@ function rowToGuide(row: GuideRow): PublishedGuide {
 
 // ---- guides --------------------------------------------------------------
 
-export function getGuide(publicId: string): PublishedGuide | null {
-  const row = db()
-    .prepare<[string], GuideRow>("SELECT * FROM guides WHERE public_id = ?")
-    .get(publicId);
+export async function getGuide(
+  db: D1Database,
+  publicId: string,
+): Promise<PublishedGuide | null> {
+  const row = await db
+    .prepare("SELECT * FROM guides WHERE public_id = ?")
+    .bind(publicId)
+    .first<GuideRow>();
   return row ? rowToGuide(row) : null;
 }
 
-/** Returns the editKey + userId for ownership checks, or null if no such guide. */
-export function getGuideOwnership(
+export async function getGuideOwnership(
+  db: D1Database,
   publicId: string,
-): { editKey: string; userId: string | null } | null {
-  const row = db()
-    .prepare<[string], { edit_key: string; user_id: string | null }>(
-      "SELECT edit_key, user_id FROM guides WHERE public_id = ?",
-    )
-    .get(publicId);
+): Promise<{ editKey: string; userId: string | null } | null> {
+  const row = await db
+    .prepare("SELECT edit_key, user_id FROM guides WHERE public_id = ?")
+    .bind(publicId)
+    .first<{ edit_key: string; user_id: string | null }>();
   return row ? { editKey: row.edit_key, userId: row.user_id } : null;
 }
 
-export function insertGuide(
+export async function insertGuide(
+  db: D1Database,
   publicId: string,
   editKey: string,
   guide: Omit<PublishedGuide, "publicId" | "createdAt" | "updatedAt" | "userId">,
   userId: string | null,
-): PublishedGuide {
+): Promise<PublishedGuide> {
   const now = Date.now();
-  db()
+  await db
     .prepare(
       `INSERT INTO guides (public_id, edit_key, title, description, steps_json, chapters_json, created_at, updated_at, user_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(
+    .bind(
       publicId,
       editKey,
       guide.title,
@@ -199,7 +132,8 @@ export function insertGuide(
       now,
       now,
       userId,
-    );
+    )
+    .run();
   return {
     publicId,
     ...guide,
@@ -209,39 +143,52 @@ export function insertGuide(
   };
 }
 
-export function updateGuide(
+export async function updateGuide(
+  db: D1Database,
   publicId: string,
   guide: Omit<PublishedGuide, "publicId" | "createdAt" | "updatedAt" | "userId">,
-): void {
-  db()
+): Promise<void> {
+  await db
     .prepare(
       `UPDATE guides SET title = ?, description = ?, steps_json = ?, chapters_json = ?, updated_at = ?
        WHERE public_id = ?`,
     )
-    .run(
+    .bind(
       guide.title,
       guide.description,
       JSON.stringify(guide.steps),
       JSON.stringify(guide.chapters ?? []),
       Date.now(),
       publicId,
-    );
+    )
+    .run();
 }
 
-export function deleteGuideRow(publicId: string): void {
-  db().prepare("DELETE FROM guides WHERE public_id = ?").run(publicId);
+/** D1 doesn't enforce FK cascade; drop child rows explicitly in a batch. */
+export async function deleteGuideRow(
+  db: D1Database,
+  publicId: string,
+): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM events WHERE public_id = ?").bind(publicId),
+    db.prepare("DELETE FROM guides WHERE public_id = ?").bind(publicId),
+  ]);
 }
 
-export function listUserGuides(userId: string): PublishedGuide[] {
-  const rows = db()
-    .prepare<[string], GuideRow>(
+export async function listUserGuides(
+  db: D1Database,
+  userId: string,
+): Promise<PublishedGuide[]> {
+  const { results } = await db
+    .prepare(
       "SELECT * FROM guides WHERE user_id = ? ORDER BY updated_at DESC",
     )
-    .all(userId);
-  return rows.map(rowToGuide);
+    .bind(userId)
+    .all<GuideRow>();
+  return results.map(rowToGuide);
 }
 
-// ---- Events --------------------------------------------------------------
+// ---- events --------------------------------------------------------------
 
 export type EventType =
   | "guide_view"
@@ -256,96 +203,119 @@ export const EVENT_TYPES: EventType[] = [
   "guide_complete",
 ];
 
-export function recordEvent(args: {
-  publicId: string;
-  eventType: EventType;
-  stepId?: string;
-  sessionId: string;
-  props?: Record<string, unknown>;
-}): void {
-  db()
+export async function recordEvent(
+  db: D1Database,
+  args: {
+    publicId: string;
+    eventType: EventType;
+    stepId?: string;
+    sessionId: string;
+    props?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await db
     .prepare(
       `INSERT INTO events (public_id, event_type, step_id, session_id, props_json, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .run(
+    .bind(
       args.publicId,
       args.eventType,
       args.stepId ?? null,
       args.sessionId,
       JSON.stringify(args.props ?? {}),
       Date.now(),
-    );
+    )
+    .run();
 }
 
 export type GuideStats = {
   totalViews: number;
   uniqueSessions: number;
   completions: number;
-  completionRate: number;          // 0..1
+  completionRate: number; // 0..1
   perStep: { stepId: string; views: number; uniqueSessions: number }[];
   branchPicks: { stepId: string | null; branchId: string; count: number }[];
   recent: { type: EventType; stepId: string | null; createdAt: number }[];
 };
 
-/** Aggregate stats for an owner dashboard. One DB roundtrip per metric;
- *  no joins fancier than COUNT(DISTINCT) so SQLite handles it easily. */
-export function getGuideStats(publicId: string): GuideStats {
-  const d = db();
+/**
+ * Aggregate stats for an owner dashboard.  D1's batch() runs the four queries
+ * in one round-trip — one prepared totals query + funnel + branch picks +
+ * recent log.  No joins fancier than COUNT(DISTINCT).
+ */
+export async function getGuideStats(
+  db: D1Database,
+  publicId: string,
+): Promise<GuideStats> {
+  const [totalsRes, perStepRes, branchPicksRes, recentRes] = await db.batch([
+    db
+      .prepare(
+        `SELECT
+           SUM(CASE WHEN event_type='guide_view' THEN 1 ELSE 0 END) AS totalViews,
+           COUNT(DISTINCT session_id) AS uniqueSessions,
+           COUNT(DISTINCT CASE WHEN event_type='guide_complete' THEN session_id END) AS completions
+         FROM events
+         WHERE public_id = ?`,
+      )
+      .bind(publicId),
+    db
+      .prepare(
+        `SELECT step_id AS stepId,
+                COUNT(*) AS views,
+                COUNT(DISTINCT session_id) AS uniqueSessions
+         FROM events
+         WHERE public_id = ? AND event_type = 'step_view' AND step_id IS NOT NULL
+         GROUP BY step_id`,
+      )
+      .bind(publicId),
+    db
+      .prepare(
+        `SELECT step_id AS stepId,
+                json_extract(props_json, '$.branchId') AS branchId,
+                COUNT(*) AS count
+         FROM events
+         WHERE public_id = ? AND event_type = 'branch_picked'
+         GROUP BY step_id, branchId`,
+      )
+      .bind(publicId),
+    db
+      .prepare(
+        `SELECT event_type AS type, step_id AS stepId, created_at AS createdAt
+         FROM events
+         WHERE public_id = ?
+         ORDER BY created_at DESC
+         LIMIT 20`,
+      )
+      .bind(publicId),
+  ]);
 
-  const totalViews = (d
-    .prepare<[string], { c: number }>(
-      "SELECT COUNT(*) AS c FROM events WHERE public_id = ? AND event_type = 'guide_view'",
-    )
-    .get(publicId)?.c) ?? 0;
+  const totals = (totalsRes.results?.[0] ?? {}) as {
+    totalViews: number | null;
+    uniqueSessions: number | null;
+    completions: number | null;
+  };
+  const totalViews = totals.totalViews ?? 0;
+  const uniqueSessions = totals.uniqueSessions ?? 0;
+  const completions = totals.completions ?? 0;
 
-  const uniqueSessions = (d
-    .prepare<[string], { c: number }>(
-      "SELECT COUNT(DISTINCT session_id) AS c FROM events WHERE public_id = ?",
-    )
-    .get(publicId)?.c) ?? 0;
+  const perStep = (perStepRes.results ?? []) as {
+    stepId: string;
+    views: number;
+    uniqueSessions: number;
+  }[];
 
-  const completions = (d
-    .prepare<[string], { c: number }>(
-      "SELECT COUNT(DISTINCT session_id) AS c FROM events WHERE public_id = ? AND event_type = 'guide_complete'",
-    )
-    .get(publicId)?.c) ?? 0;
+  const branchPicks = ((branchPicksRes.results ?? []) as {
+    stepId: string | null;
+    branchId: string | null;
+    count: number;
+  }[]).filter((r): r is { stepId: string | null; branchId: string; count: number } => !!r.branchId);
 
-  const perStep = d
-    .prepare<[string], { stepId: string; views: number; uniqueSessions: number }>(
-      `SELECT step_id AS stepId,
-              COUNT(*) AS views,
-              COUNT(DISTINCT session_id) AS uniqueSessions
-       FROM events
-       WHERE public_id = ? AND event_type = 'step_view' AND step_id IS NOT NULL
-       GROUP BY step_id`,
-    )
-    .all(publicId);
-
-  const branchPicks = d
-    .prepare<
-      [string],
-      { stepId: string | null; branchId: string; count: number }
-    >(
-      `SELECT step_id AS stepId,
-              json_extract(props_json, '$.branchId') AS branchId,
-              COUNT(*) AS count
-       FROM events
-       WHERE public_id = ? AND event_type = 'branch_picked'
-       GROUP BY step_id, branchId`,
-    )
-    .all(publicId)
-    .filter((r) => !!r.branchId);
-
-  const recent = d
-    .prepare<[string], { type: EventType; stepId: string | null; createdAt: number }>(
-      `SELECT event_type AS type, step_id AS stepId, created_at AS createdAt
-       FROM events
-       WHERE public_id = ?
-       ORDER BY created_at DESC
-       LIMIT 20`,
-    )
-    .all(publicId);
+  const recent = (recentRes.results ?? []) as {
+    type: EventType;
+    stepId: string | null;
+    createdAt: number;
+  }[];
 
   return {
     totalViews,

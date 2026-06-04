@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/server/auth";
 import {
+  getDb,
   getGuideOwnership,
   insertGuide,
   type PublishedStep,
@@ -15,7 +16,7 @@ import type {
   StepTranslation,
 } from "@/lib/types";
 
-export const runtime = "nodejs"; // better-sqlite3 + fs need Node, not Edge.
+export const runtime = "nodejs";
 
 // Soft caps to keep a single publish from filling the disk by accident.
 const MAX_STEPS = 200;
@@ -35,7 +36,7 @@ type PublishStepInput = {
   translations?: Record<string, StepTranslation>;
   image: { base64: string; mime?: string };
   /** Optional voiceover audio (MP3, base64).  When present the server saves
-   *  it to disk and the published step gets `hasAudio: true`. */
+   *  it to R2 and the published step gets `hasAudio: true`. */
   audio?: { base64: string };
 };
 
@@ -70,26 +71,26 @@ export async function POST(req: Request) {
   // Decode + validate image (and optional audio) bytes before touching any
   // persistent state — we want a 400 before half-writing files.
   const decoded: {
-    imageBytes: Buffer;
-    audioBytes: Buffer | null;
+    imageBytes: Uint8Array;
+    audioBytes: Uint8Array | null;
     step: PublishStepInput;
   }[] = [];
   for (let i = 0; i < body.steps.length; i++) {
     const step = body.steps[i];
     if (!step?.image?.base64) return bad(`Step ${i + 1} missing image`);
-    let imageBytes: Buffer;
+    let imageBytes: Uint8Array;
     try {
-      imageBytes = Buffer.from(step.image.base64, "base64");
+      imageBytes = base64ToBytes(step.image.base64);
     } catch {
       return bad(`Step ${i + 1} has invalid image base64`);
     }
     if (imageBytes.length === 0 || imageBytes.length > MAX_IMAGE_BYTES) {
       return bad(`Step ${i + 1} image is empty or too large`);
     }
-    let audioBytes: Buffer | null = null;
+    let audioBytes: Uint8Array | null = null;
     if (step.audio?.base64) {
       try {
-        audioBytes = Buffer.from(step.audio.base64, "base64");
+        audioBytes = base64ToBytes(step.audio.base64);
       } catch {
         return bad(`Step ${i + 1} has invalid audio base64`);
       }
@@ -100,7 +101,8 @@ export async function POST(req: Request) {
     decoded.push({ imageBytes, audioBytes, step });
   }
 
-  const me = await getCurrentUser();
+  const db = await getDb();
+  const me = await getCurrentUser(db);
 
   // Decide between insert and update. Update is authorised by either the
   // editKey (works for anonymous publishers) or by being the owning user.
@@ -108,7 +110,7 @@ export async function POST(req: Request) {
   let editKey: string;
   let isUpdate = false;
   if (publicId) {
-    const owner = getGuideOwnership(publicId);
+    const owner = await getGuideOwnership(db, publicId);
     if (!owner) return bad("Guide not found", 404);
     const byKey = !!body.editKey && body.editKey === owner.editKey;
     const byUser = !!me && owner.userId === me.id;
@@ -164,8 +166,16 @@ export async function POST(req: Request) {
     steps,
     chapters: chapters.length > 0 ? chapters : undefined,
   };
-  if (isUpdate) updateGuide(publicId, guide);
-  else insertGuide(publicId, editKey, guide, me?.id ?? null);
+  if (isUpdate) await updateGuide(db, publicId, guide);
+  else await insertGuide(db, publicId, editKey, guide, me?.id ?? null);
 
   return NextResponse.json({ publicId, editKey, owned: !!me });
+}
+
+/** Strict base64 → Uint8Array (browser/workerd; no Node Buffer). */
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }

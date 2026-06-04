@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   EVENT_TYPES,
   type EventType,
+  getDb,
   getGuide,
   recordEvent,
 } from "@/lib/server/db";
@@ -18,18 +19,18 @@ type IncomingEvent = {
 
 /**
  * Fire-and-forget event sink for the public viewer.
- * Accepts one event or a `{events: [...]}` batch (the client may use
- * `sendBeacon` on unload).  No auth — the schema is public-by-design
- * (random session id, no PII).
+ * Accepts one event or a `{events: [...]}` batch.  No auth — the schema is
+ * public-by-design (random session id, no PII).
  */
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ publicId: string }> },
 ) {
   const { publicId } = await params;
+  const db = await getDb();
   // Make sure the guide actually exists before recording — keeps random
   // bots from filling the table with noise for non-existent ids.
-  if (!getGuide(publicId)) {
+  if (!(await getGuide(db, publicId))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -52,7 +53,7 @@ export async function POST(
   let recorded = 0;
   for (const e of list) {
     if (!e?.type || !KNOWN.has(e.type)) continue; // silently skip unknown types
-    recordEvent({
+    await recordEvent(db, {
       publicId,
       eventType: e.type as EventType,
       stepId: typeof e.stepId === "string" ? e.stepId : undefined,
