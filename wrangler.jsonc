@@ -16,8 +16,7 @@
     {
       "binding": "DB",
       "database_name": "guidejar",
-      // Filled in after `wrangler d1 create guidejar` — see README "Deploy".
-      "database_id": "FILL_AFTER_d1_create",
+      "database_id": "2161f414-5565-415f-9872-8bc365d98826",
       "migrations_dir": "migrations"
     }
   ],
