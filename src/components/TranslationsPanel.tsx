@@ -78,7 +78,7 @@ export function TranslationsPanel({
         </span>
         {configured === false && (
           <span className="text-xs text-slate-400">
-            Set OPENAI_API_KEY to auto-translate
+            Set OPENROUTER_API_KEY to auto-translate
           </span>
         )}
       </div>

@@ -235,7 +235,7 @@ function Features() {
     {
       icon: "🔊",
       title: "AI voiceover",
-      body: "Generate spoken narration from each step's text with OpenAI TTS. Audio auto-plays in the viewer.",
+      body: "Generate spoken narration from each step's text with AI TTS. Audio auto-plays in the viewer.",
     },
     {
       icon: "🌍",

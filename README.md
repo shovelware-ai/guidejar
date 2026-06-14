@@ -48,10 +48,14 @@ The root `/` is the marketing landing page; the app dashboard lives at
 
 **Optional environment**
 
-  - `OPENAI_API_KEY` — enables AI voiceover and AI translation. Without it,
-    the editor's Generate buttons disable themselves and the endpoints return
-    503. Set via `.dev.vars` locally or `wrangler secret put OPENAI_API_KEY`
-    for production.
+  - `OPENROUTER_API_KEY` — enables AI voiceover and AI translation, routed
+    through [OpenRouter](https://openrouter.ai)'s OpenAI-compatible API.
+    Without it, the editor's Generate buttons disable themselves and the
+    endpoints return 503. Set via `.dev.vars` locally or
+    `wrangler secret put OPENROUTER_API_KEY` for production. The models are
+    overridable via `OPENROUTER_MODEL` (chat/translation, default
+    `openai/gpt-4o-mini`) and `OPENROUTER_TTS_MODEL` (voiceover, default
+    `openai/gpt-4o-mini-tts`).
   - `SESSION_SECRET` — HMAC secret for session cookies. Locally a dev
     placeholder is used; **production deploys MUST set this** via
     `wrangler secret put SESSION_SECRET` (any sufficiently long random
@@ -63,7 +67,7 @@ Standard shovelware model: Cloudflare Workers + D1 + R2 on the
 `guidejar.shovelware.ai` custom domain. The Next.js app is bundled for
 Workers via `@opennextjs/cloudflare`; SQLite lives in D1; screenshot and
 voiceover blobs live in R2 (`guidejar-assets` bucket); the session secret
-and OPENAI key live as Workers secrets.
+and OpenRouter key live as Workers secrets.
 
 First-time deploy (one-shot):
 
@@ -76,7 +80,7 @@ npx wrangler r2 bucket create guidejar-assets
 
 # Required production secrets:
 npx wrangler secret put SESSION_SECRET  # any 32+ char random string
-npx wrangler secret put OPENAI_API_KEY  # only if you want voiceover + translation
+npx wrangler secret put OPENROUTER_API_KEY  # only if you want voiceover + translation
 
 npm run db:remote                       # apply 0001_init.sql to the live D1
 npm run deploy                          # opennextjs-cloudflare build && wrangler deploy
@@ -147,7 +151,7 @@ src/
       ids.ts                  Short URL ids + per-guide edit keys (Web Crypto)
       auth.ts                 HMAC-signed session cookies (Web Crypto subtle)
       users.ts                User CRUD + bcrypt password verify
-      openai.ts               TTS + translation (env-gated by OPENAI_API_KEY)
+      ai.ts                   TTS + translation via OpenRouter (env-gated by OPENROUTER_API_KEY)
 
 extension/                    Chrome (MV3) capture extension — see below
 migrations/0001_init.sql      D1 schema (consolidated v1→v4)
@@ -254,7 +258,7 @@ A guide can carry per-step translations of its title + description.  In the
 editor, add target language codes (BCP-47, e.g. `es`, `fr-CA`, `ja`) in the
 toolbar.  Each step then shows a Translations subsection — one row per
 language with an editable title + description and a Generate button that
-hits `POST /api/translate` (OpenAI `gpt-4o-mini`, JSON-mode).
+hits `POST /api/translate` (OpenRouter `openai/gpt-4o-mini`, JSON-mode).
 
 **Viewer.** When a published guide has any translation, a language picker
 shows up in the header.  Picking a language renders that language per step,
@@ -266,19 +270,19 @@ is **derived on read** from the union of translation keys actually present
 on the steps — a language with no translated copy anywhere just doesn't show
 up.  No DB column, no migration.
 
-**Env gate.** Same as voiceover: without `OPENAI_API_KEY` the endpoint
+**Env gate.** Same as voiceover: without `OPENROUTER_API_KEY` the endpoint
 returns 503 and the editor's Generate buttons are hidden in favour of a
 hint.  Manual editing still works.
 
 ## AI voiceover
 
 Each step can have an MP3 voiceover generated from its title + description by
-OpenAI's TTS (`gpt-4o-mini-tts`).  The audio plays automatically in the
-viewer; if the browser blocks autoplay before any user gesture, a small play
-button shows on the screenshot.
+OpenAI's TTS (`openai/gpt-4o-mini-tts`), reached through OpenRouter.  The audio
+plays automatically in the viewer; if the browser blocks autoplay before any
+user gesture, a small play button shows on the screenshot.
 
 **Flow.** The editor calls `POST /api/voiceover {text, voice}`; the server
-hits OpenAI and streams the MP3 back.  Bytes go into an IndexedDB `audio`
+hits OpenRouter and streams the MP3 back.  Bytes go into an IndexedDB `audio`
 store (so drafts work offline and the local viewer can play it too); the
 step gains an `audioId`.  On publish the bytes upload alongside images and
 the server saves them to `data/audio/<publicId>/<stepId>.mp3`; the public
@@ -290,8 +294,8 @@ doesn't auto-regenerate — clicking Regenerate on a step re-renders with the
 current voice.
 
 **Limits.** Hard-capped at 4 MB per voiceover MP3 server-side, and 4096
-characters of input text (OpenAI's TTS limit).  When `OPENAI_API_KEY` isn't
-set the endpoint returns 503 and the editor disables the controls cleanly.
+characters of input text (the TTS model's limit).  When `OPENROUTER_API_KEY`
+isn't set the endpoint returns 503 and the editor disables the controls cleanly.
 
 ## Chapters
 

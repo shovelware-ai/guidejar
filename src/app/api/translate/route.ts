@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { translateStep, openaiIsConfigured } from "@/lib/server/openai";
+import { translateStep, aiIsConfigured } from "@/lib/server/ai";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return NextResponse.json({ configured: openaiIsConfigured() });
+  return NextResponse.json({ configured: aiIsConfigured() });
 }
 
 export async function POST(req: Request) {
-  if (!openaiIsConfigured()) {
+  if (!aiIsConfigured()) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not set on the server." },
+      { error: "OPENROUTER_API_KEY is not set on the server." },
       { status: 503 },
     );
   }

@@ -91,7 +91,7 @@ export function VoiceoverPanel({
 
       {configured === false && (
         <p className="text-xs text-slate-500">
-          Voiceover is disabled — set <code className="rounded bg-slate-100 px-1">OPENAI_API_KEY</code>{" "}
+          Voiceover is disabled — set <code className="rounded bg-slate-100 px-1">OPENROUTER_API_KEY</code>{" "}
           on the server to enable.
         </p>
       )}
