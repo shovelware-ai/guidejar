@@ -57,7 +57,7 @@ investment memo verdict is **KILL / recommend sunset** (2026-08-01).
 |---|---:|---:|---|---|
 | `ads` | 6 | 2 | DEFER | The obvious buy is "Scribe alternative" / "Tango alternative" — real commercial intent, and the memo already has the competitor price anchors. But the landing page it would point at is branded with a live competitor's trademark (disapproval and complaint risk on Google and Meta both), there is no checkout to recover the click, and P11 says paid isn't a first channel without a payback line. Spending against a $0 product with no processor is spend with no denominator. |
 | `ai-seo` | 3 | 3 | CONSIDER | Agent-cheap (`llms.txt`, answer-shaped copy) and the category question — "how do I document a process without recording a video" — is exactly what people ask assistants. Fatal problem: the citation namespace "Guidejar" already resolves to guidejar.com. Every AI-SEO asset we build under this name teaches models to cite the incumbent. Re-rates the day we rename. |
-| `aso` | 5 | 2 | **N/A** | No mobile app and none planned; the editor is a desktop browser surface. *But the near-neighbour is not N/A and is being skipped by inattention:* the Chrome MV3 capture extension in `extension/` is currently unpacked-only, and the **Chrome Web Store is a genuine search-driven discovery channel** for "screen recorder", "how-to guide", "screenshot documentation". See Preconditions. |
+| `aso` | 6 | 5 | DEFER | **The store is the Chrome Web Store, and the artefact already exists** — `extension/` is a working MV3 capture extension, unpacked-only today. CWS is a ranked search surface with install intent, and it is the category leader's actual distribution: Scribe is a Chrome extension first and a web app second, which is precisely how it reached the seat we are trying to take. "Screen recorder", "how-to guide", "step-by-step documentation" are live in-store queries. Effort 6, not 2, and none of it is the packaging: (a) `manifest.json` requests `<all_urls>` host permissions *and* an all-URLs content script, which puts the review into Google's extended-review bucket with a per-permission justification, a published privacy policy and a limited-use certification; (b) the store listing name and slug are permanent and the manifest currently reads `"name": "Guidejar Capture"` — see the hard gate below; (c) `bridge.js` only matches `http://localhost/*` and `127.0.0.1`, so a store-installed copy cannot hand a capture back to the production app at all — the extension is not currently shippable, only loadable. Impact 5 and not higher for the same reason `free-tools` is capped: with no price and no processor, a store install is a **P6** diagnostic, not money. **Hard gate:** a CWS listing is a permanent, public, identity-verified declaration under a wordmark that belongs to `guidejar.com`, filed on a surface with a one-click trademark-complaint path and account-level strike consequences. Not N/A — the surface is real and unbarred *in itself* — but do not submit before the rename. |
 | `cold-email` | 5 | 2 | DEFER | Async, so P1-clean, and CS/IT leads are enumerable. But the pitch is "free clone of a product named after the product it clones" and there is nothing to buy at the end of it. Cold email that converts to a free signup and then nothing is P6 reach, not money. |
 | `co-marketing` | 8 | 1 | DEFER | Co-marketing means a partner putting their brand next to ours in writing. No help-desk, LMS or onboarding vendor will co-brand with an unlicensed clone of a live competitor, and partnership conversations are the archetypal P1 violation. Zero-upside row. |
 | `community-marketing` | 8 | 3 | DEFER | The memo's own GTM names the real rooms (r/CustomerSuccess, r/sysadmin, Scribe/Arcade pricing threads) and they genuinely contain the buyer — that's why this scores 3 and not 1. But it demands sustained recurring human presence in communities that punish astroturfing, and the name invites the worst possible first comment. |
@@ -72,6 +72,18 @@ investment memo verdict is **KILL / recommend sunset** (2026-08-01).
 | `referrals` | 2 | 6 | **DO NOW** | **This is the product's one structural advantage and it is half switched off.** Guidejar produces a shareable public artifact that the *user* sends to other people — `PublicViewer` renders a "Made with Guidejar" footer linking home, so every shared guide is a placement in front of someone who is, at that exact moment, being walked through a process. That sidesteps P2 entirely: it borrows the user's audience, not ours. But `GuidePlayer.tsx:393` gates the footer (and the header logo) behind `!embed` — so the `?embed=1` iframe snippet that ShareDialog hands out, the highest-distribution surface, carries **zero attribution**. That is a one-line fix an agent does unsupervised. The reason it is not already done is the only reason: the wordmark it would broadcast into other companies' help centres is another company's trademark. Rename, then ship it. |
 | `seo-audit` | 2 | 3 | CONSIDER | Fully unsupervised and there are concrete defects to find: `sitemap.xml` 404s, no OG/Twitter meta anywhere, default Next.js `favicon.ico`, no canonical tags on published guides, `force-dynamic` on the one page type we'd want crawled. Capped at 3 because auditing a zero-DR staging subdomain that will be replaced at rename is fixing the plumbing of a house we're moving out of. |
 | `social` | 7 | 2 | DEFER | The artifact is genuinely demo-able — a branching click-through guide is a good 20-second clip — which is the only thing keeping this off a 1. Against that: a posting cadence is recurring human presence, P2 says we have no following, and every impression trains recall for a name we must abandon. |
+
+> **`aso` rescored 2026-08-05** (was **5 / 2 / N/A**, "no mobile app and none
+> planned"). Under the rubric's corrected definition — store-search optimisation
+> on any marketplace with its own search box and ranking — the Chrome Web Store
+> is a first-class `aso` surface, and this repo already contains the extension
+> that would list on it. The old row had in fact spotted this and filed it as a
+> "near-neighbour" in its own rationale while still writing N/A; the rescore just
+> puts the score where the reasoning already was. New: **6 / 5 / DEFER** — a real
+> channel, correctly deferred behind the rename rather than dismissed. Note the
+> band did not move for a good reason: the arithmetic changed from "structurally
+> inapplicable" to "costs more than it returns *at this stage*", which is a
+> different and much more actionable claim.
 
 ## Class B — Conversion & lifecycle (14)
 
@@ -131,7 +143,13 @@ AI-SEO, PR, social, video and comparison pages all work by depositing recall and
 backlinks against a name; here, every deposit is either thrown away at rename or
 actively raises exposure. It is why nine Class A rows that would score 4–6 for a
 generic micro-SaaS score 1–3 here, and why the highest-impact row on the whole
-sheet is `product-marketing` rather than any channel.
+sheet is `product-marketing` rather than any channel. The sharpest instance is
+the one the 2026-08-05 `aso` rescore surfaced: a Chrome Web Store listing is not
+a page we can quietly retract. It is permanent, publicly indexed, attached to a
+verified developer identity, and sits behind a one-click trademark-complaint form
+with account-level strike consequences. Every other brand-accumulating channel
+here merely *wastes* work if we rename late; the store listing is the one that
+converts a private exposure into a filed, attributable one.
 
 **2. There is no price and no processor, so P6 is currently unreachable.**
 No Stripe, no plan, no number on the landing page, and open-ended free with no end
@@ -167,7 +185,7 @@ below is queued behind a revival decision, not permitted work.
 | **Stripe wired + a published price** | Uncaps every Class A row's impact ceiling from "signups" to "revenue". `paywalls`, `revops` and `offers` become live work; `ads` becomes arguable for the first time (still needs a payback line under P11). |
 | **Embed attribution enabled** (`GuidePlayer.tsx:393` — render the footer in embed mode; add an OG image so shares stop rendering blank) | `referrals` and `image` both become measurable rather than theoretical. Requires the rename first. |
 | **First ~20 published guides exist** | `schema` (HowTo JSON-LD), `programmatic-seo` (UGC index + sitemap + a gallery), and `site-architecture` all re-rate — currently they score against an empty content surface. |
-| **Capture extension listed on the Chrome Web Store** | Opens a real search-driven discovery channel this sheet cannot currently score under `aso` (which is N/A for lack of a mobile app). CWS listing optimisation is the live analogue and is the most likely channel to be skipped by inattention here. Needs a $5 developer fee and a store-review-safe name — i.e. gated on the rename too. |
+| **Capture extension listed on the Chrome Web Store** (rename shipped, `bridge.js` pointed at production instead of `localhost`, privacy policy published, `<all_urls>` permissions justified or narrowed) | `aso` 5→7 and DEFER→CONSIDER — this is the channel through which the category leader (Scribe) actually acquires, and the extension is already built. It reaches DO NOW only once a price exists, since store installs are **P6**-diagnostic without a processor. Gated on the rename in the strongest sense on this sheet: the listing slug is permanent and the complaint path is one click. |
 | **Marketing analytics installed** (PostHog + conversion event + UTM convention) | `cro` and `ab-testing` become methodical instead of speculative; and P3 becomes satisfiable, so a kill test can actually fire. |
 | **A competitor's free floor moves** (Dubble caps its free tier, or Folge ships hosted sharing) | Re-opens the "free + local-first" hole the memo says is bracketed. This is the one trigger that is not in our control and the reason `competitor-profiling` earns a standing quarterly re-check even under sunset. |
 | **Memo reversal test passes** (a wedge that isn't "same thing, free", *and* 10 of 20 recruited users publish a real guide and return unprompted within a week) | Revival under a new registry entry. Only then does `marketing-plan` re-rate and this document get rewritten from a funded position. |
