@@ -1,7 +1,7 @@
 ---
 status: current
 type: living
-date: 2026-08-18
+date: 2026-08-31
 ---
 
 # Guidejar docs — the map
@@ -22,24 +22,27 @@ submissions, no launch posts, no extension publishing. See the 2026-08-14
 - [`decisions.md`](decisions.md) — log, current. Dated decisions; check the
   latest matching entry before re-deciding anything.
 - [`marketing-channels.md`](marketing-channels.md) — living, current
-  (2026-08-05). Channel-by-channel assessment against the org rubric v2;
+  (2026-08-31). Channel-by-channel assessment against the org rubric v2;
   holds the naming-collision analysis and which channels are barred until
-  the rename.
+  the rename. Header carries what-changed notes for the 2026-08-22 and
+  2026-08-31 passes (the latter corrects an OG-override claim and adds the
+  `mainroom` rename precedent).
 - [`marketing-surfaces.md`](marketing-surfaces.md) — living, current
-  (2026-08-05). Which specific store/directory/answer-engine rows the
+  (2026-08-31). Which specific store/directory/answer-engine rows the
   product qualifies for, given what is built.
 
-Launch-readiness runs (2026-06-30, 2026-08-14) also produce
-`LAUNCH_CHECKLIST.md` (repo root) and `docs/finance.md`,
-`docs/deploy-drift.md`, `docs/ux-review.md`. As of 2026-08-14 those exist
-only as uncommitted files in the primary checkout — until they land, treat
-this note as the pointer to where that state lives. The headline from
-`deploy-drift.md` is summarised in `decisions.md` so it survives that gap:
-11 of 14 stack invariants hold; the two GATE deviations are **AI calls
-going provider-direct to OpenAI instead of OpenRouter** and **no Umami
-analytics or privacy policy**. The approved-deviations registry is empty —
-nothing on this product has ever been ratified in writing, so no deviation
-you find here should be read as blessed.
+Launch-readiness runs (2026-06-30, 2026-08-14, 2026-08-22, 2026-08-31) also
+produce `LAUNCH_CHECKLIST.md` (repo root) and `docs/finance.md`,
+`docs/deploy-drift.md`, `docs/ux-review.md`, `docs/CURRENT_STATUS.md`. As of
+2026-08-31 those still exist only as uncommitted files in the primary
+checkout, unchanged since 2026-08-22 — until they land, treat this note as
+the pointer to where that state lives. The headline from `deploy-drift.md`
+is summarised in `decisions.md` so it survives that gap: as of 2026-08-31
+the only open GATE deviation is **AI calls going provider-direct to OpenAI
+instead of OpenRouter** (§10a/§10b) — the Umami/privacy-policy GATE (§11) is
+code-complete pending a live deploy and verification. The approved-deviations
+registry is empty — nothing on this product has ever been ratified in
+writing, so no deviation you find here should be read as blessed.
 
 ## Reading paths
 
